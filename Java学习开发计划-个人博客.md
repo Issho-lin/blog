@@ -32,6 +32,7 @@
 | 后端 | Spring Boot 3.x | Java Web 主流框架，生态成熟 |
 | 构建 | Maven | 依赖、编译和测试流程清晰 |
 | 数据库 | PostgreSQL | 关系模型完整，适合学习 SQL 和事务 |
+| 缓存与 Session | Redis | 学习缓存、Session、TTL、计数和限流；不作为主数据库 |
 | ORM | Spring Data JPA / Hibernate | 先提高开发效率，再补 SQL 原理 |
 | 前端 | Next.js + React + TypeScript | 主流 React 框架，支持公开博客 SSR/SEO；前端实现不纳入本计划 |
 | 后端接口 | Spring MVC REST API | 与前端完全分离，统一使用 JSON 接口 |
@@ -41,7 +42,7 @@
 | 数据库迁移 | Flyway | 让表结构变更可追踪、可重复部署 |
 | 部署 | Docker Compose | 降低本地和服务器环境差异 |
 
-首期不引入 Redis、微服务、消息队列和 JWT 认证。认证先使用 Spring Security + HttpOnly Cookie Session，等单体 MVP 稳定后，再根据真实问题引入缓存、异步任务或 Token 方案。
+首期引入 Redis，但只用于 Session、文章详情缓存、阅读数和限流。暂不引入微服务、消息队列和 JWT 认证；认证先使用 Spring Security + HttpOnly Cookie Session。
 
 ### 1.4 前后端分离架构
 
