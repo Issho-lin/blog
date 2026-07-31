@@ -16,9 +16,49 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import com.linqibin.blog.common.api.ApiResponse;
 import com.linqibin.blog.common.request.RequestIdUtils;
+import com.linqibin.blog.post.exception.DuplicateSlugException;
+import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
+import com.linqibin.blog.post.exception.PostNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(PostNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handlePostNotFound(
+            PostNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.error(
+                        "POST_NOT_FOUND",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler({
+            DuplicateSlugException.class,
+            InvalidPostStateTransitionException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handlePostConflict(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        String errorCode = exception instanceof DuplicateSlugException
+                ? "DUPLICATE_SLUG"
+                : "INVALID_POST_STATE_TRANSITION";
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.error(
+                        errorCode,
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, Object>>> handleMethodArgumentNotValid(

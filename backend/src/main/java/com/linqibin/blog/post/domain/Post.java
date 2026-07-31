@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
+import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
+
 public record Post(
         UUID id,
         String title,

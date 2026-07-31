@@ -12,6 +12,10 @@ public class InMemoryPostRepository implements PostRepository {
 
     private final ConcurrentHashMap<UUID, Post> posts = new ConcurrentHashMap<>();
 
+    public void clear() {
+        posts.clear();
+    }
+
     @Override
     public Post save(Post post) {
         posts.put(post.id(), post);

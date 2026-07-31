@@ -11,11 +11,11 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.linqibin.blog.post.domain.DuplicateSlugException;
-import com.linqibin.blog.post.domain.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.domain.SlugGenerator;
+import com.linqibin.blog.post.exception.DuplicateSlugException;
+import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.infrastructure.InMemoryPostRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

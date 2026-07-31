@@ -8,12 +8,13 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import com.linqibin.blog.post.domain.DuplicateSlugException;
 import com.linqibin.blog.post.domain.Post;
-import com.linqibin.blog.post.domain.PostNotFoundException;
 import com.linqibin.blog.post.domain.PostRepository;
 import com.linqibin.blog.post.domain.SlugGenerator;
+import com.linqibin.blog.post.exception.DuplicateSlugException;
+import com.linqibin.blog.post.exception.PostNotFoundException;
 
+// 应用层负责把“查找/生成 slug/创建 Post/保存”这些步骤串成完整用例。
 public class PostService {
 
     private final PostRepository postRepository;
@@ -82,6 +83,7 @@ public class PostService {
     }
 
     private String resolveSlug(String title, String requestedSlug) {
+        // 手动传 slug 时直接校验并使用；未传时根据标题自动生成并补唯一后缀。
         if (requestedSlug != null && !requestedSlug.isBlank()) {
             String normalizedRequestedSlug = slugGenerator.normalizeRequestedSlug(requestedSlug);
             if (postRepository.existsBySlug(normalizedRequestedSlug)) {
@@ -95,6 +97,7 @@ public class PostService {
     }
 
     private String defaultContent(String markdownContent) {
+        // 草稿允许先没有正文，所以这里把 null 归一成空字符串。
         return markdownContent == null ? "" : markdownContent;
     }
 }

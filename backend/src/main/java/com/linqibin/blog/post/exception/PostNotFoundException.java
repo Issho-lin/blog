@@ -1,4 +1,4 @@
-package com.linqibin.blog.post.domain;
+package com.linqibin.blog.post.exception;
 
 import java.util.UUID;
 

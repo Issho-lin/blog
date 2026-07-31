@@ -1,4 +1,6 @@
-package com.linqibin.blog.post.domain;
+package com.linqibin.blog.post.exception;
+
+import com.linqibin.blog.post.domain.PostStatus;
 
 public class InvalidPostStateTransitionException extends RuntimeException {
 

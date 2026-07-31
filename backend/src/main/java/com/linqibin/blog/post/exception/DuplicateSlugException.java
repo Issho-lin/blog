@@ -1,4 +1,4 @@
-package com.linqibin.blog.post.domain;
+package com.linqibin.blog.post.exception;
 
 public class DuplicateSlugException extends RuntimeException {
 
