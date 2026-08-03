@@ -13,6 +13,7 @@ import com.linqibin.blog.post.domain.Post;
 @RequestMapping("/api/public/posts")
 public class PublicPostController {
 
+    // 公开接口同样只依赖应用层，由它负责查找文章和抛业务异常。
     private final PostService postService;
 
     public PublicPostController(PostService postService) {

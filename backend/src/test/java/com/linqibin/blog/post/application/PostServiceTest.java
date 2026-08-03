@@ -107,6 +107,73 @@ class PostServiceTest {
     }
 
     @Test
+    void updateDraftChangesTitleContentAndKeepsSlugWhenNotProvided() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Original Title", "# old", null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        Post updatedPost = updateService.updatePost(draftPost.id(), "Updated Title", "# new", null);
+
+        assertEquals("Updated Title", updatedPost.title());
+        assertEquals("# new", updatedPost.markdownContent());
+        assertEquals("original-title", updatedPost.slug());
+        assertEquals(PostStatus.DRAFT, updatedPost.status());
+        assertEquals(Instant.parse("2026-07-30T11:00:00Z"), updatedPost.updatedAt());
+    }
+
+    @Test
+    void updateDraftWithBlankSlugRegeneratesSlugFromLatestTitle() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Original Title", "# old", null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        Post updatedPost = updateService.updatePost(draftPost.id(), "New Url Title", "# old", "");
+
+        assertEquals("new-url-title", updatedPost.slug());
+    }
+
+    @Test
+    void updatePostWithDuplicateRequestedSlugThrowsException() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        draftService.createDraft("First Post", "# first", "custom-slug");
+        Post secondPost = draftService.createDraft("Second Post", "# second", null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        assertThrows(
+                DuplicateSlugException.class,
+                () -> updateService.updatePost(secondPost.id(), "Second Post", "# second", "custom-slug")
+        );
+    }
+
+    @Test
+    void updateTrashedPostThrowsInvalidStateTransitionException() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Trash Me", "# content", null);
+        PostService trashService = createServiceAt("2026-07-30T11:00:00Z");
+        trashService.moveToTrash(draftPost.id());
+        PostService updateService = createServiceAt("2026-07-30T12:00:00Z");
+
+        assertThrows(
+                InvalidPostStateTransitionException.class,
+                () -> updateService.updatePost(draftPost.id(), "Updated", "# content", null)
+        );
+    }
+
+    @Test
+    void updatePublishedPostWithBlankContentThrowsIllegalArgumentException() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Published Post", "# content", null);
+        PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
+        publishService.publish(draftPost.id());
+        PostService updateService = createServiceAt("2026-07-30T12:00:00Z");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> updateService.updatePost(draftPost.id(), "Published Post", "", null)
+        );
+    }
+
+    @Test
     void publishDraftChangesStatusAndSetsPublishedAt() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
         Post draftPost = draftService.createDraft("Publish Me", "# content", null);

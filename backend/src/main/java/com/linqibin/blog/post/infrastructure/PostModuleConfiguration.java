@@ -15,21 +15,25 @@ public class PostModuleConfiguration {
 
     @Bean
     public InMemoryPostRepository inMemoryPostRepository() {
+        // 先注册具体实现，方便测试和本地开发直接使用。
         return new InMemoryPostRepository();
     }
 
     @Bean
     public PostRepository postRepository(InMemoryPostRepository inMemoryPostRepository) {
+        // 对外暴露仓库抽象，让上层依赖接口而不是具体类。
         return inMemoryPostRepository;
     }
 
     @Bean
     public SlugGenerator slugGenerator() {
+        // slug 规则是模块级通用能力，集中注册成 Bean 复用。
         return new SlugGenerator();
     }
 
     @Bean
     public Clock clock() {
+        // 用 Clock 注入时间，方便测试里固定当前时间。
         return Clock.systemUTC();
     }
 

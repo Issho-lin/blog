@@ -20,6 +20,7 @@ public record PostResponse(
 
     public static PostResponse from(Post post) {
         // 统一在这一层做领域对象 -> 接口响应对象的转换。
+        // 这样 web 层对外暴露的数据结构可以独立演进，不会把领域对象直接绑死到接口上。
         return new PostResponse(
                 post.id(),
                 post.title(),
