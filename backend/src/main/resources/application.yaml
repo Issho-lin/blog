@@ -22,6 +22,13 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         boot.allow_jdbc_metadata_access: false
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+
+blog:
+  post:
+    repository-type: in-memory
 
 management:
   endpoints:

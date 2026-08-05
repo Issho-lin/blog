@@ -65,6 +65,44 @@ REDIS_DATABASE=0
 
 对应文件：`backend/src/main/resources/application.yaml`
 
+## 数据库建表脚本
+
+当前文章表的版本化 SQL 脚本位于：
+
+```text
+backend/src/main/resources/db/migration/V1__create_posts_table.sql
+```
+
+在本地 PostgreSQL 已启动后，可以手动执行：
+
+```bash
+psql "postgresql://blog:blog@localhost:5432/blog" -f backend/src/main/resources/db/migration/V1__create_posts_table.sql
+```
+
+如果使用了自定义环境变量，请将连接串替换成自己的数据库地址、用户名和密码。
+
+## Flyway 与仓库模式
+
+后端默认使用内存仓库：
+
+```text
+blog.post.repository-type=in-memory
+spring.flyway.enabled=false
+```
+
+当需要切到 PostgreSQL + JPA 时，启用 `jpa` profile：
+
+```bash
+SPRING_PROFILES_ACTIVE=jpa
+```
+
+启用后会自动生效：
+
+- `blog.post.repository-type=jpa`
+- `spring.flyway.enabled=true`
+- 启动时自动执行 `backend/src/main/resources/db/migration` 下尚未执行过的 migration
+- JPA 使用 `ddl-auto=validate` 校验实体与表结构是否一致
+
 ## 后端启动方式
 
 推荐直接通过 IDEA 打开 `backend` 工程后运行 `BackendApplication`。
