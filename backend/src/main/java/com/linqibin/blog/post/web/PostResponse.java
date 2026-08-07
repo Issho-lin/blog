@@ -15,7 +15,8 @@ public record PostResponse(
         PostStatus status,
         Instant createdAt,
         Instant updatedAt,
-        Instant publishedAt
+        Instant publishedAt,
+        long version
 ) {
 
     public static PostResponse from(Post post) {
@@ -29,7 +30,8 @@ public record PostResponse(
                 post.status(),
                 post.createdAt(),
                 post.updatedAt(),
-                post.publishedAt()
+                post.publishedAt(),
+                post.version()
         );
     }
 }

@@ -52,7 +52,8 @@ class PostRepositoryAdapterTest {
                 post.createdAt(),
                 Instant.parse("2026-08-05T13:00:00Z"),
                 Instant.parse("2026-08-05T13:00:00Z"),
-                null
+                null,
+                0L
         );
         when(springDataPostRepository.save(any(PostEntity.class))).thenReturn(savedEntity);
 
@@ -80,7 +81,8 @@ class PostRepositoryAdapterTest {
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
-                null
+                null,
+                0L
         );
         when(springDataPostRepository.findBySlug("read-me")).thenReturn(Optional.of(entity));
 
@@ -112,7 +114,8 @@ class PostRepositoryAdapterTest {
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T09:00:00Z"),
                 null,
-                null
+                null,
+                0L
         );
         PostEntity second = new PostEntity(
                 UUID.fromString("66666666-6666-6666-6666-666666666666"),
@@ -123,7 +126,8 @@ class PostRepositoryAdapterTest {
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
                 Instant.parse("2026-08-05T09:30:00Z"),
-                null
+                null,
+                0L
         );
         when(springDataPostRepository.findAll()).thenReturn(List.of(first, second));
 
@@ -150,6 +154,6 @@ class PostRepositoryAdapterTest {
         Instant publishedAt = status == PostStatus.PUBLISHED
                 ? Instant.parse("2026-08-05T12:00:00Z")
                 : null;
-        return new Post(id, title, slug, "# content", status, createdAt, updatedAt, publishedAt, null);
+        return new Post(id, title, slug, "# content", status, createdAt, updatedAt, publishedAt, null, 0L);
     }
 }

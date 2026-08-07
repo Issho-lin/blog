@@ -112,7 +112,7 @@ class PostServiceTest {
         Post draftPost = draftService.createDraft("Original Title", "# old", null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
-        Post updatedPost = updateService.updatePost(draftPost.id(), "Updated Title", "# new", null);
+        Post updatedPost = updateService.updatePost(draftPost.id(), "Updated Title", "# new", null, null);
 
         assertEquals("Updated Title", updatedPost.title());
         assertEquals("# new", updatedPost.markdownContent());
@@ -127,7 +127,7 @@ class PostServiceTest {
         Post draftPost = draftService.createDraft("Original Title", "# old", null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
-        Post updatedPost = updateService.updatePost(draftPost.id(), "New Url Title", "# old", "");
+        Post updatedPost = updateService.updatePost(draftPost.id(), "New Url Title", "# old", "", null);
 
         assertEquals("new-url-title", updatedPost.slug());
     }
@@ -141,7 +141,7 @@ class PostServiceTest {
 
         assertThrows(
                 DuplicateSlugException.class,
-                () -> updateService.updatePost(secondPost.id(), "Second Post", "# second", "custom-slug")
+                () -> updateService.updatePost(secondPost.id(), "Second Post", "# second", "custom-slug", null)
         );
     }
 
@@ -155,7 +155,7 @@ class PostServiceTest {
 
         assertThrows(
                 InvalidPostStateTransitionException.class,
-                () -> updateService.updatePost(draftPost.id(), "Updated", "# content", null)
+                () -> updateService.updatePost(draftPost.id(), "Updated", "# content", null, null)
         );
     }
 
@@ -169,7 +169,7 @@ class PostServiceTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> updateService.updatePost(draftPost.id(), "Published Post", "", null)
+                () -> updateService.updatePost(draftPost.id(), "Published Post", "", null, null)
         );
     }
 

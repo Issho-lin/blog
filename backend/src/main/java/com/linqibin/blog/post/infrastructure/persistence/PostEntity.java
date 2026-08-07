@@ -46,6 +46,11 @@ public class PostEntity {
     @Column(name = "previous_status_before_trash", length = 20)
     private PostStatus previousStatusBeforeTrash;
 
+    // 版本号：由领域对象 Post 在状态转换时递增，JPA 只负责持久化，不自动管理。
+    // 并发冲突检测由 PostService 在应用层完成，保持内存模式和 JPA 模式行为一致。
+    @Column(name = "version", nullable = false)
+    private long version;
+
     protected PostEntity() {
         // JPA 通过反射创建实体时需要无参构造器。
     }
@@ -59,7 +64,8 @@ public class PostEntity {
             Instant createdAt,
             Instant updatedAt,
             Instant publishedAt,
-            PostStatus previousStatusBeforeTrash
+            PostStatus previousStatusBeforeTrash,
+            long version
     ) {
         this.id = id;
         this.title = title;
@@ -70,6 +76,7 @@ public class PostEntity {
         this.updatedAt = updatedAt;
         this.publishedAt = publishedAt;
         this.previousStatusBeforeTrash = previousStatusBeforeTrash;
+        this.version = version;
     }
 
     public UUID getId() {
@@ -106,5 +113,9 @@ public class PostEntity {
 
     public PostStatus getPreviousStatusBeforeTrash() {
         return previousStatusBeforeTrash;
+    }
+
+    public long getVersion() {
+        return version;
     }
 }

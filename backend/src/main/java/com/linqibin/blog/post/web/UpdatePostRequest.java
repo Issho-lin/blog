@@ -10,6 +10,9 @@ public record UpdatePostRequest(
         // 草稿和已下线文章允许先把正文留空；已发布文章的限制交给领域层判断。
         String markdownContent,
         // 不传表示保留原 slug；传空字符串表示根据最新标题重新生成。
-        String slug
+        String slug,
+        // 乐观锁版本号：客户端从上次加载的文章中获取 version 值，提交时回传。
+        // 不传（null）时跳过版本检查，仅用于不关心并发安全的场景。
+        Long expectedVersion
 ) {
 }

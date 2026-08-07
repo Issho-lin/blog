@@ -15,7 +15,8 @@ public class PostEntityMapper {
                 post.createdAt(),
                 post.updatedAt(),
                 post.publishedAt(),
-                post.previousStatusBeforeTrash()
+                post.previousStatusBeforeTrash(),
+                post.version()
         );
     }
 
@@ -29,7 +30,8 @@ public class PostEntityMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getPublishedAt(),
-                entity.getPreviousStatusBeforeTrash()
+                entity.getPreviousStatusBeforeTrash(),
+                entity.getVersion()
         );
     }
 }

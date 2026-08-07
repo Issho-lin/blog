@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -358,6 +359,88 @@ class PostControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("INVALID_POST_STATE_TRANSITION"))
                 .andExpect(jsonPath("$.message").value("文章状态 DRAFT 不允许执行操作: restoreFromTrash"))
                 .andExpect(jsonPath("$.requestId").value("restore-invalid-request-id"));
+    }
+
+    @Test
+    void updateWithCorrectExpectedVersionSucceedsAndIncrementsVersion() throws Exception {
+        UUID postId = createDraft("Version Post", "# content");
+        // 新建草稿的 version 为 0
+        assertEquals(0L, postRepository.findById(postId).orElseThrow().version());
+
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Version Post Updated",
+                                  "markdownContent": "# updated",
+                                  "expectedVersion": 0
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "version-update-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "version-update-request-id"))
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.data.version").value(1));
+    }
+
+    @Test
+    void updateWithStaleExpectedVersionReturnsConflict() throws Exception {
+        UUID postId = createDraft("Concurrent Post", "# content");
+        // 先正常更新一次，version 从 0 递增到 1
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "title": "Concurrent Post Updated",
+                          "markdownContent": "# updated",
+                          "expectedVersion": 0
+                        }
+                        """));
+
+        // 用过期的 expectedVersion=0 再次更新，应返回 409
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Stale Update",
+                                  "markdownContent": "# stale",
+                                  "expectedVersion": 0
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "stale-version-request-id"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "stale-version-request-id"))
+                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("文章已被其他人修改")))
+                .andExpect(jsonPath("$.requestId").value("stale-version-request-id"));
+    }
+
+    @Test
+    void updateWithoutExpectedVersionSkipsVersionCheck() throws Exception {
+        UUID postId = createDraft("No Version Check", "# content");
+        // 不传 expectedVersion 时跳过版本检查，即使版本不匹配也能更新
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "title": "No Version Check Updated",
+                          "markdownContent": "# updated"
+                        }
+                        """));
+
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Second Update",
+                                  "markdownContent": "# second"
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "no-version-check-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("Second Update"));
     }
 
     private UUID createDraft(String title, String markdownContent) throws Exception {

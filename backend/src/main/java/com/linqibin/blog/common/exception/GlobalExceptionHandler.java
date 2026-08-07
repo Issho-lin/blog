@@ -16,6 +16,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import com.linqibin.blog.common.api.ApiResponse;
 import com.linqibin.blog.common.request.RequestIdUtils;
+import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.exception.PostNotFoundException;
@@ -40,15 +41,21 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateSlugException.class,
-            InvalidPostStateTransitionException.class
+            InvalidPostStateTransitionException.class,
+            ConcurrentPostModificationException.class
     })
     public ResponseEntity<ApiResponse<Void>> handlePostConflict(
             RuntimeException exception,
             HttpServletRequest request
     ) {
-        String errorCode = exception instanceof DuplicateSlugException
-                ? "DUPLICATE_SLUG"
-                : "INVALID_POST_STATE_TRANSITION";
+        String errorCode;
+        if (exception instanceof DuplicateSlugException) {
+            errorCode = "DUPLICATE_SLUG";
+        } else if (exception instanceof ConcurrentPostModificationException) {
+            errorCode = "CONCURRENT_MODIFICATION";
+        } else {
+            errorCode = "INVALID_POST_STATE_TRANSITION";
+        }
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 ApiResponse.error(

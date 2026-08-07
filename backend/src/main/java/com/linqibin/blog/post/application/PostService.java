@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostRepository;
 import com.linqibin.blog.post.domain.SlugGenerator;
+import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.PostNotFoundException;
 
@@ -48,9 +49,13 @@ public class PostService {
         return postRepository.save(post);
     }
 
-    public Post updatePost(UUID postId, String title, String markdownContent, String requestedSlug) {
+    public Post updatePost(UUID postId, String title, String markdownContent, String requestedSlug, Long expectedVersion) {
         // 编辑文章时先取到当前实体，再决定 slug 是否保留、重算或改成手动值。
         Post currentPost = getPost(postId);
+        // 如果客户端传了 expectedVersion，就检查版本号是否匹配，不匹配说明文章已被其他人修改。
+        if (expectedVersion != null && expectedVersion != currentPost.version()) {
+            throw new ConcurrentPostModificationException(postId, expectedVersion, currentPost.version());
+        }
         String resolvedSlug = resolveSlugForUpdate(currentPost, title, requestedSlug);
         Post updatedPost = currentPost.update(title, resolvedSlug, defaultContent(markdownContent), Instant.now(clock));
         return postRepository.save(updatedPost);

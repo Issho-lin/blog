@@ -48,7 +48,7 @@ public class AdminPostController {
     @PutMapping("/{postId}")
     public PostResponse updatePost(@PathVariable UUID postId, @Valid @RequestBody UpdatePostRequest request) {
         // 编辑接口允许修改文章内容；是否能改、改完状态是否保持不变，由应用层和领域层决定。
-        Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug());
+        Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug(), request.expectedVersion());
         return PostResponse.from(updatedPost);
     }
 

@@ -30,7 +30,8 @@ class PostEntityMapperTest {
                 createdAt,
                 updatedAt,
                 publishedAt,
-                PostStatus.UNPUBLISHED
+                PostStatus.UNPUBLISHED,
+                3L
         );
 
         PostEntity entity = mapper.toEntity(post);
@@ -44,6 +45,7 @@ class PostEntityMapperTest {
         assertEquals(updatedAt, entity.getUpdatedAt());
         assertEquals(publishedAt, entity.getPublishedAt());
         assertEquals(PostStatus.UNPUBLISHED, entity.getPreviousStatusBeforeTrash());
+        assertEquals(3L, entity.getVersion());
     }
 
     @Test
@@ -60,7 +62,8 @@ class PostEntityMapperTest {
                 createdAt,
                 updatedAt,
                 null,
-                null
+                null,
+                0L
         );
 
         Post post = mapper.toDomain(entity);
@@ -74,5 +77,6 @@ class PostEntityMapperTest {
         assertEquals(updatedAt, post.updatedAt());
         assertNull(post.publishedAt());
         assertNull(post.previousStatusBeforeTrash());
+        assertEquals(0L, post.version());
     }
 }

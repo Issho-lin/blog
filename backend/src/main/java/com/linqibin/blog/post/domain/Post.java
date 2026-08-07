@@ -16,7 +16,8 @@ public record Post(
         Instant createdAt,
         Instant updatedAt,
         Instant publishedAt,
-        PostStatus previousStatusBeforeTrash
+        PostStatus previousStatusBeforeTrash,
+        long version
 ) {
 
     public Post {
@@ -48,12 +49,12 @@ public record Post(
             String markdownContent,
             Instant now
     ) {
-        // 新建文章时默认就是草稿，发布时间和回收站前状态都还不存在。
-        return new Post(id, title, slug, markdownContent, PostStatus.DRAFT, now, now, null, null);
+        // 新建文章时默认就是草稿，发布时间和回收站前状态都还不存在，version 从 0 开始。
+        return new Post(id, title, slug, markdownContent, PostStatus.DRAFT, now, now, null, null, 0);
     }
 
     public Post update(String title, String slug, String markdownContent, Instant now) {
-        // 回收站里的文章必须先恢复，再允许继续编辑，避免“已删除内容”被悄悄改动。
+        // 回收站里的文章必须先恢复，再允许继续编辑，避免"已删除内容"被悄悄改动。
         if (status == PostStatus.TRASHED) {
             throw new InvalidPostStateTransitionException(status, "update");
         }
@@ -62,7 +63,8 @@ public record Post(
             throw new IllegalArgumentException("正文不能为空");
         }
 
-        return new Post(id, title, slug, markdownContent, status, createdAt, now, publishedAt, previousStatusBeforeTrash);
+        // 每次修改都递增 version，用于乐观锁并发冲突检测。
+        return new Post(id, title, slug, markdownContent, status, createdAt, now, publishedAt, previousStatusBeforeTrash, version + 1);
     }
 
     public Post publish(Instant now) {
@@ -80,7 +82,7 @@ public record Post(
 
         // 重复发布时保留首次发布时间，只更新最近一次操作时间。
         Instant firstPublishedAt = publishedAt == null ? now : publishedAt;
-        return new Post(id, title, slug, markdownContent, PostStatus.PUBLISHED, createdAt, now, firstPublishedAt, null);
+        return new Post(id, title, slug, markdownContent, PostStatus.PUBLISHED, createdAt, now, firstPublishedAt, null, version + 1);
     }
 
     public Post unpublish(Instant now) {
@@ -88,7 +90,7 @@ public record Post(
         if (status != PostStatus.PUBLISHED) {
             throw new InvalidPostStateTransitionException(status, "unpublish");
         }
-        return new Post(id, title, slug, markdownContent, PostStatus.UNPUBLISHED, createdAt, now, publishedAt, null);
+        return new Post(id, title, slug, markdownContent, PostStatus.UNPUBLISHED, createdAt, now, publishedAt, null, version + 1);
     }
 
     public Post moveToTrash(Instant now) {
@@ -96,7 +98,7 @@ public record Post(
         if (status != PostStatus.DRAFT && status != PostStatus.UNPUBLISHED) {
             throw new InvalidPostStateTransitionException(status, "moveToTrash");
         }
-        return new Post(id, title, slug, markdownContent, PostStatus.TRASHED, createdAt, now, publishedAt, status);
+        return new Post(id, title, slug, markdownContent, PostStatus.TRASHED, createdAt, now, publishedAt, status, version + 1);
     }
 
     public Post restoreFromTrash(Instant now) {
@@ -107,6 +109,6 @@ public record Post(
         PostStatus restoredStatus = previousStatusBeforeTrash == PostStatus.UNPUBLISHED
                 ? PostStatus.UNPUBLISHED
                 : PostStatus.DRAFT;
-        return new Post(id, title, slug, markdownContent, restoredStatus, createdAt, now, publishedAt, null);
+        return new Post(id, title, slug, markdownContent, restoredStatus, createdAt, now, publishedAt, null, version + 1);
     }
 }
