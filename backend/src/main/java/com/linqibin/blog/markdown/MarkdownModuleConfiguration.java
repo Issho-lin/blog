@@ -3,7 +3,9 @@ package com.linqibin.blog.markdown;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
 import com.linqibin.blog.markdown.parser.CommonMarkRenderer;
+import com.linqibin.blog.markdown.parser.FrontMatterParser;
 import com.linqibin.blog.markdown.parser.MarkdownRenderer;
 import com.linqibin.blog.markdown.sanitizer.HtmlSanitizer;
 import com.linqibin.blog.markdown.sanitizer.OwaspHtmlSanitizer;
@@ -29,5 +31,17 @@ public class MarkdownModuleConfiguration {
     public MarkdownService markdownService(MarkdownRenderer markdownRenderer, HtmlSanitizer htmlSanitizer) {
         // 组合解析和清洗，对外暴露统一入口。
         return new MarkdownService(markdownRenderer, htmlSanitizer);
+    }
+
+    @Bean
+    public FrontMatterParser frontMatterParser() {
+        // 用于导入 Markdown 文件时解析 YAML Front Matter。
+        return new FrontMatterParser();
+    }
+
+    @Bean
+    public FrontMatterExporter frontMatterExporter() {
+        // 用于导出文章时生成带 Front Matter 的 Markdown 文件。
+        return new FrontMatterExporter();
     }
 }

@@ -33,7 +33,8 @@ public class AdminPostController {
     @PostMapping("/drafts")
     public ResponseEntity<PostResponse> createDraft(@Valid @RequestBody CreatePostRequest request) {
         // Controller 只负责收参与出参转换，真正的创建流程放在 PostService 中。
-        Post createdPost = postService.createDraft(request.title(), request.markdownContent(), request.slug());
+        Post createdPost = postService.createDraft(request.title(), request.markdownContent(), request.slug(),
+                request.categoryId(), request.tagIds());
         return ResponseEntity.status(HttpStatus.CREATED).body(PostResponse.from(createdPost));
     }
 
@@ -62,7 +63,8 @@ public class AdminPostController {
     @PutMapping("/{postId}")
     public PostResponse updatePost(@PathVariable UUID postId, @Valid @RequestBody UpdatePostRequest request) {
         // 编辑接口允许修改文章内容；是否能改、改完状态是否保持不变，由应用层和领域层决定。
-        Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug(), request.expectedVersion());
+        Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug(),
+                request.categoryId(), request.tagIds(), request.expectedVersion());
         return PostResponse.from(updatedPost);
     }
 

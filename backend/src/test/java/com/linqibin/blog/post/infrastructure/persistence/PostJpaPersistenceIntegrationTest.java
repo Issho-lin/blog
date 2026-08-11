@@ -39,7 +39,7 @@ class PostJpaPersistenceIntegrationTest {
 
     @Test
     void createDraftPersistsPostToPostgreSql() {
-        Post createdPost = postService.createDraft("Integration Draft", "# integration", null);
+        Post createdPost = postService.createDraft("Integration Draft", "# integration", null, null, null);
 
         PostEntity savedEntity = springDataPostRepository.findById(createdPost.id()).orElseThrow();
 
@@ -52,7 +52,7 @@ class PostJpaPersistenceIntegrationTest {
 
     @Test
     void createDraftDefaultsNullMarkdownContentToEmptyStringInPostgreSql() {
-        Post createdPost = postService.createDraft("Empty Content Draft", null, null);
+        Post createdPost = postService.createDraft("Empty Content Draft", null, null, null, null);
 
         PostEntity savedEntity = springDataPostRepository.findById(createdPost.id()).orElseThrow();
 
@@ -64,11 +64,11 @@ class PostJpaPersistenceIntegrationTest {
 
     @Test
     void publishAndUpdateKeepOriginalSlugWhenRequestedSlugIsNull() {
-        Post createdPost = postService.createDraft("Lifecycle Post", "# draft", null);
+        Post createdPost = postService.createDraft("Lifecycle Post", "# draft", null, null, null);
         UUID postId = createdPost.id();
 
         postService.publish(postId);
-        postService.updatePost(postId, "Lifecycle Post Updated", "# published", null, null);
+        postService.updatePost(postId, "Lifecycle Post Updated", "# published", null, null, null, null);
 
         PostEntity savedEntity = springDataPostRepository.findById(postId).orElseThrow();
 
@@ -81,7 +81,7 @@ class PostJpaPersistenceIntegrationTest {
 
     @Test
     void unpublishMoveToTrashAndRestorePersistStatusFieldsToPostgreSql() {
-        Post createdPost = postService.createDraft("Trash Me", "# content", null);
+        Post createdPost = postService.createDraft("Trash Me", "# content", null, null, null);
         UUID postId = createdPost.id();
 
         postService.publish(postId);

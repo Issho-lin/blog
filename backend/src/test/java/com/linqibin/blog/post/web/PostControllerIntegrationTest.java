@@ -133,7 +133,7 @@ class PostControllerIntegrationTest {
 
         mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"))
                 .andExpect(status().isOk());
-
+        
         mockMvc.perform(get("/api/public/posts/read-me")
                         .header(RequestIdUtils.REQUEST_ID_HEADER, "get-post-request-id"))
                 .andExpect(status().isOk())
@@ -143,7 +143,16 @@ class PostControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.requestId").value("get-post-request-id"))
                 .andExpect(jsonPath("$.data.title").value("Read Me"))
-                .andExpect(jsonPath("$.data.slug").value("read-me"));
+                .andExpect(jsonPath("$.data.slug").value("read-me"))
+                // 详情接口应返回渲染后的 HTML。
+                .andExpect(jsonPath("$.data.html").isNotEmpty())
+                // 详情接口应返回摘要。
+                .andExpect(jsonPath("$.data.summary").isNotEmpty())
+                // 详情接口应返回阅读时长。
+                .andExpect(jsonPath("$.data.readingTimeMinutes").isNumber())
+                // 详情接口应返回 SEO 字段。
+                .andExpect(jsonPath("$.data.seoTitle").value("Read Me"))
+                .andExpect(jsonPath("$.data.canonicalUrl").value("/posts/read-me"));
     }
 
     @Test
@@ -507,6 +516,99 @@ class PostControllerIntegrationTest {
                         .header(RequestIdUtils.REQUEST_ID_HEADER, "idempotent-update-request-id"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.version").value(0));
+    }
+
+    @Test
+    void listPublishedPostsReturnsOnlyPublishedPosts() throws Exception {
+        UUID firstId = createDraft("First Published", "# content one");
+        createDraft("Draft Post", "# draft content");
+        UUID secondId = createDraft("Second Published", "# content two");
+        mockMvc.perform(post("/api/admin/posts/" + firstId + "/publish"));
+        mockMvc.perform(post("/api/admin/posts/" + secondId + "/publish"));
+
+        mockMvc.perform(get("/api/public/posts")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "list-public-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                // 列表项不应包含 markdownContent。
+                .andExpect(jsonPath("$.data.items[0].markdownContent").doesNotExist())
+                // 列表项应包含摘要和阅读时长。
+                .andExpect(jsonPath("$.data.items[0].summary").isNotEmpty())
+                .andExpect(jsonPath("$.data.items[0].readingTimeMinutes").isNumber())
+                // 分页元信息。
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+    }
+
+    @Test
+    void listPublishedPostsSupportsCustomPagination() throws Exception {
+        for (int i = 1; i <= 3; i++) {
+            UUID postId = createDraft("Post " + i, "# content " + i);
+            mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"));
+        }
+
+        mockMvc.perform(get("/api/public/posts")
+                        .param("page", "1")
+                        .param("pageSize", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(2))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.totalPages").value(2));
+
+        mockMvc.perform(get("/api/public/posts")
+                        .param("page", "2")
+                        .param("pageSize", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.page").value(2));
+    }
+
+    @Test
+    void getPostBySlugIncrementsViewCount() throws Exception {
+        UUID postId = createDraft("View Count Post", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"));
+
+        // 第一次访问详情。
+        mockMvc.perform(get("/api/public/posts/view-count-post"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.viewCount").value(1));
+
+        // 第二次访问，阅读数应递增。
+        mockMvc.perform(get("/api/public/posts/view-count-post"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.viewCount").value(2));
+    }
+
+    @Test
+    void getArchivesReturnsPublishedPostsGroupedByMonth() throws Exception {
+        UUID postId = createDraft("Archive Post", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"));
+        createDraft("Draft Not In Archive", "# draft");
+
+        mockMvc.perform(get("/api/public/posts/archives")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "archive-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.requestId").value("archive-request-id"))
+                // 至少有一个分组。
+                .andExpect(jsonPath("$.data[0].year").isNumber())
+                .andExpect(jsonPath("$.data[0].month").isNumber())
+                .andExpect(jsonPath("$.data[0].items[0].title").value("Archive Post"))
+                .andExpect(jsonPath("$.data[0].items[0].slug").value("archive-post"));
+    }
+
+    @Test
+    void archivesDoesNotReturnDrafts() throws Exception {
+        createDraft("Draft Only", "# draft");
+
+        mockMvc.perform(get("/api/public/posts/archives"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     private UUID createDraft(String title, String markdownContent) throws Exception {

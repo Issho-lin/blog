@@ -2,11 +2,17 @@ package com.linqibin.blog.post.infrastructure;
 
 import java.time.Clock;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
+import com.linqibin.blog.markdown.parser.FrontMatterParser;
+import com.linqibin.blog.post.application.PostImportExportService;
 import com.linqibin.blog.post.application.PostService;
+import com.linqibin.blog.taxonomy.application.CategoryService;
+import com.linqibin.blog.taxonomy.application.TagService;
 import com.linqibin.blog.post.domain.PostRepository;
 import com.linqibin.blog.post.domain.SlugGenerator;
 import com.linqibin.blog.post.infrastructure.persistence.PostEntityMapper;
@@ -62,5 +68,21 @@ public class PostModuleConfiguration {
     public PostService postService(PostRepository postRepository, SlugGenerator slugGenerator, Clock clock) {
         // PostService 依赖抽象仓库与 slug 规则，后续切数据库时这里只需要替换仓库实现。
         return new PostService(postRepository, slugGenerator, clock);
+    }
+
+    @Bean
+    public PostImportExportService postImportExportService(
+            PostService postService,
+            CategoryService categoryService,
+            TagService tagService,
+            FrontMatterParser frontMatterParser,
+            FrontMatterExporter frontMatterExporter,
+            SlugGenerator slugGenerator,
+            @Value("${blog.import.max-file-size:2097152}") long maxImportSize
+    ) {
+        return new PostImportExportService(
+                postService, categoryService, tagService,
+                frontMatterParser, frontMatterExporter, slugGenerator, maxImportSize
+        );
     }
 }

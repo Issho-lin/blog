@@ -1,6 +1,7 @@
 package com.linqibin.blog.post.web;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import com.linqibin.blog.post.domain.Post;
@@ -13,6 +14,8 @@ public record PostResponse(
         String slug,
         String markdownContent,
         PostStatus status,
+        UUID categoryId,
+        List<UUID> tagIds,
         Instant createdAt,
         Instant updatedAt,
         Instant publishedAt,
@@ -28,6 +31,8 @@ public record PostResponse(
                 post.slug(),
                 post.markdownContent(),
                 post.status(),
+                post.categoryId(),
+                post.tagIds(),
                 post.createdAt(),
                 post.updatedAt(),
                 post.publishedAt(),

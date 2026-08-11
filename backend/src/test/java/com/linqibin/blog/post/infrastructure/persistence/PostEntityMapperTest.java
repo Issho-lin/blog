@@ -27,11 +27,14 @@ class PostEntityMapperTest {
                 "hello-jpa",
                 "# content",
                 PostStatus.TRASHED,
+                null,
+                null,
                 createdAt,
                 updatedAt,
                 publishedAt,
                 PostStatus.UNPUBLISHED,
-                3L
+                3L,
+                0L
         );
 
         PostEntity entity = mapper.toEntity(post);
@@ -46,6 +49,7 @@ class PostEntityMapperTest {
         assertEquals(publishedAt, entity.getPublishedAt());
         assertEquals(PostStatus.UNPUBLISHED, entity.getPreviousStatusBeforeTrash());
         assertEquals(3L, entity.getVersion());
+        assertEquals(0L, entity.getViewCount());
     }
 
     @Test
@@ -59,10 +63,13 @@ class PostEntityMapperTest {
                 "draft-post",
                 "",
                 PostStatus.DRAFT,
+                null,
+                null,
                 createdAt,
                 updatedAt,
                 null,
                 null,
+                0L,
                 0L
         );
 
@@ -78,5 +85,6 @@ class PostEntityMapperTest {
         assertNull(post.publishedAt());
         assertNull(post.previousStatusBeforeTrash());
         assertEquals(0L, post.version());
+        assertEquals(0L, post.viewCount());
     }
 }

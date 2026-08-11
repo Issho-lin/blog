@@ -17,11 +17,15 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import com.linqibin.blog.auth.exception.InvalidCredentialsException;
 import com.linqibin.blog.common.api.ApiResponse;
 import com.linqibin.blog.common.request.RequestIdUtils;
+import com.linqibin.blog.media.exception.InvalidFileException;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.exception.PostNotFoundException;
+import com.linqibin.blog.taxonomy.exception.CategoryNotFoundException;
+import com.linqibin.blog.taxonomy.exception.DuplicateTaxonomySlugException;
+import com.linqibin.blog.taxonomy.exception.TagNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -58,15 +62,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateSlugException.class,
-            InvalidPostStateTransitionException.class
+            InvalidPostStateTransitionException.class,
+            DuplicateTaxonomySlugException.class
     })
-    public ResponseEntity<ApiResponse<Void>> handlePostConflict(
+    public ResponseEntity<ApiResponse<Void>> handleConflict(
             RuntimeException exception,
             HttpServletRequest request
     ) {
         String errorCode;
         if (exception instanceof DuplicateSlugException) {
             errorCode = "DUPLICATE_SLUG";
+        } else if (exception instanceof DuplicateTaxonomySlugException) {
+            errorCode = "DUPLICATE_TAXONOMY_SLUG";
         } else {
             errorCode = "INVALID_POST_STATE_TRANSITION";
         }
@@ -74,6 +81,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 ApiResponse.error(
                         errorCode,
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler({CategoryNotFoundException.class, TagNotFoundException.class})
+    public ResponseEntity<ApiResponse<Void>> handleTaxonomyNotFound(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.error(
+                        "TAXONOMY_NOT_FOUND",
                         exception.getMessage(),
                         null,
                         RequestIdUtils.getRequestId(request)
@@ -155,6 +177,21 @@ public class GlobalExceptionHandler {
                         "VALIDATION_ERROR",
                         "请求参数校验失败",
                         errorData,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidFile(
+            InvalidFileException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.badRequest().body(
+                ApiResponse.error(
+                        "INVALID_FILE",
+                        exception.getMessage(),
+                        null,
                         RequestIdUtils.getRequestId(request)
                 )
         );

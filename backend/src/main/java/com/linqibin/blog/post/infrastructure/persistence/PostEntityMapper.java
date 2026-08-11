@@ -12,11 +12,14 @@ public class PostEntityMapper {
                 post.slug(),
                 post.markdownContent(),
                 post.status(),
+                post.categoryId(),
+                post.tagIds(),
                 post.createdAt(),
                 post.updatedAt(),
                 post.publishedAt(),
                 post.previousStatusBeforeTrash(),
-                post.version()
+                post.version(),
+                post.viewCount()
         );
     }
 
@@ -27,11 +30,14 @@ public class PostEntityMapper {
                 entity.getSlug(),
                 entity.getMarkdownContent(),
                 entity.getStatus(),
+                entity.getCategoryId(),
+                entity.getTagIds(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getPublishedAt(),
                 entity.getPreviousStatusBeforeTrash(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getViewCount()
         );
     }
 }

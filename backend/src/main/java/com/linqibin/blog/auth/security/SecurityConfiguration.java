@@ -43,6 +43,7 @@ public class SecurityConfiguration {
                 // 公开接口：健康检查、公开文章、认证接口
                 .requestMatchers("/api/health", "/api/health/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()

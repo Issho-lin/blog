@@ -49,10 +49,13 @@ class PostRepositoryAdapterTest {
                 post.slug(),
                 post.markdownContent(),
                 PostStatus.PUBLISHED,
+                null,
+                null,
                 post.createdAt(),
                 Instant.parse("2026-08-05T13:00:00Z"),
                 Instant.parse("2026-08-05T13:00:00Z"),
                 null,
+                0L,
                 0L
         );
         when(springDataPostRepository.save(any(PostEntity.class))).thenReturn(savedEntity);
@@ -78,10 +81,13 @@ class PostRepositoryAdapterTest {
                 "read-me",
                 "# read",
                 PostStatus.PUBLISHED,
+                null,
+                null,
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
                 null,
+                0L,
                 0L
         );
         when(springDataPostRepository.findBySlug("read-me")).thenReturn(Optional.of(entity));
@@ -111,10 +117,13 @@ class PostRepositoryAdapterTest {
                 "first",
                 "# one",
                 PostStatus.DRAFT,
+                null,
+                null,
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T09:00:00Z"),
                 null,
                 null,
+                0L,
                 0L
         );
         PostEntity second = new PostEntity(
@@ -123,10 +132,13 @@ class PostRepositoryAdapterTest {
                 "second",
                 "# two",
                 PostStatus.UNPUBLISHED,
+                null,
+                null,
                 Instant.parse("2026-08-05T09:00:00Z"),
                 Instant.parse("2026-08-05T10:00:00Z"),
                 Instant.parse("2026-08-05T09:30:00Z"),
                 null,
+                0L,
                 0L
         );
         when(springDataPostRepository.findAll()).thenReturn(List.of(first, second));
@@ -154,6 +166,6 @@ class PostRepositoryAdapterTest {
         Instant publishedAt = status == PostStatus.PUBLISHED
                 ? Instant.parse("2026-08-05T12:00:00Z")
                 : null;
-        return new Post(id, title, slug, "# content", status, createdAt, updatedAt, publishedAt, null, 0L);
+        return new Post(id, title, slug, "# content", status, null, null, createdAt, updatedAt, publishedAt, null, 0L, 0L);
     }
 }

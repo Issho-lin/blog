@@ -46,7 +46,7 @@ class PostServiceTest {
     void createDraftGeneratesNormalizedSlugFromEnglishTitle() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
 
-        Post post = postService.createDraft(" Hello, Spring Boot! ", "# content", null);
+        Post post = postService.createDraft(" Hello, Spring Boot! ", "# content", null, null, null);
 
         assertEquals("Hello, Spring Boot!", post.title());
         assertEquals("hello-spring-boot", post.slug());
@@ -57,7 +57,7 @@ class PostServiceTest {
     void createDraftWithChineseTitleFallsBackToShortIdSlug() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
 
-        Post post = postService.createDraft("你好，个人博客", "# content", null);
+        Post post = postService.createDraft("你好，个人博客", "# content", null, null, null);
 
         assertEquals("post-fallback-1", post.slug());
     }
@@ -66,8 +66,8 @@ class PostServiceTest {
     void createDraftWithDuplicateGeneratedSlugAppendsNumericSuffix() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
 
-        Post firstPost = postService.createDraft("Hello World", "# content", null);
-        Post secondPost = postService.createDraft("Hello World", "# content", null);
+        Post firstPost = postService.createDraft("Hello World", "# content", null, null, null);
+        Post secondPost = postService.createDraft("Hello World", "# content", null, null, null);
 
         assertEquals("hello-world", firstPost.slug());
         assertEquals("hello-world-2", secondPost.slug());
@@ -77,18 +77,18 @@ class PostServiceTest {
     void createDraftWithDuplicateRequestedSlugThrowsException() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
 
-        postService.createDraft("First", "# content", "custom-slug");
+        postService.createDraft("First", "# content", "custom-slug", null, null);
 
         assertThrows(
                 DuplicateSlugException.class,
-                () -> postService.createDraft("Second", "# content", "custom-slug")
+                () -> postService.createDraft("Second", "# content", "custom-slug", null, null)
         );
     }
 
     @Test
     void getPostBySlugReturnsSavedPost() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
-        Post createdPost = postService.createDraft("My Post", "# content", null);
+        Post createdPost = postService.createDraft("My Post", "# content", null, null, null);
 
         Post foundPost = postService.getPostBySlug("my-post");
 
@@ -98,8 +98,8 @@ class PostServiceTest {
     @Test
     void searchByTitleKeywordIgnoresCase() {
         PostService postService = createServiceAt("2026-07-30T10:00:00Z");
-        Post springPost = postService.createDraft("Spring Boot Guide", "# content", null);
-        postService.createDraft("Redis Notes", "# content", null);
+        Post springPost = postService.createDraft("Spring Boot Guide", "# content", null, null, null);
+        postService.createDraft("Redis Notes", "# content", null, null, null);
 
         assertIterableEquals(
                 java.util.List.of(springPost),
@@ -110,10 +110,10 @@ class PostServiceTest {
     @Test
     void updateDraftChangesTitleContentAndKeepsSlugWhenNotProvided() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Original Title", "# old", null);
+        Post draftPost = draftService.createDraft("Original Title", "# old", null, null, null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
-        Post updatedPost = updateService.updatePost(draftPost.id(), "Updated Title", "# new", null, null);
+        Post updatedPost = updateService.updatePost(draftPost.id(), "Updated Title", "# new", null, null, null, null);
 
         assertEquals("Updated Title", updatedPost.title());
         assertEquals("# new", updatedPost.markdownContent());
@@ -125,10 +125,10 @@ class PostServiceTest {
     @Test
     void updateDraftWithBlankSlugRegeneratesSlugFromLatestTitle() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Original Title", "# old", null);
+        Post draftPost = draftService.createDraft("Original Title", "# old", null, null, null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
-        Post updatedPost = updateService.updatePost(draftPost.id(), "New Url Title", "# old", "", null);
+        Post updatedPost = updateService.updatePost(draftPost.id(), "New Url Title", "# old", "", null, null, null);
 
         assertEquals("new-url-title", updatedPost.slug());
     }
@@ -136,48 +136,48 @@ class PostServiceTest {
     @Test
     void updatePostWithDuplicateRequestedSlugThrowsException() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        draftService.createDraft("First Post", "# first", "custom-slug");
-        Post secondPost = draftService.createDraft("Second Post", "# second", null);
+        draftService.createDraft("First Post", "# first", "custom-slug", null, null);
+        Post secondPost = draftService.createDraft("Second Post", "# second", null, null, null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
         assertThrows(
                 DuplicateSlugException.class,
-                () -> updateService.updatePost(secondPost.id(), "Second Post", "# second", "custom-slug", null)
+                () -> updateService.updatePost(secondPost.id(), "Second Post", "# second", "custom-slug", null, null, null)
         );
     }
 
     @Test
     void updateTrashedPostThrowsInvalidStateTransitionException() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Trash Me", "# content", null);
+        Post draftPost = draftService.createDraft("Trash Me", "# content", null, null, null);
         PostService trashService = createServiceAt("2026-07-30T11:00:00Z");
         trashService.moveToTrash(draftPost.id());
         PostService updateService = createServiceAt("2026-07-30T12:00:00Z");
 
         assertThrows(
                 InvalidPostStateTransitionException.class,
-                () -> updateService.updatePost(draftPost.id(), "Updated", "# content", null, null)
+                () -> updateService.updatePost(draftPost.id(), "Updated", "# content", null, null, null, null)
         );
     }
 
     @Test
     void updatePublishedPostWithBlankContentThrowsIllegalArgumentException() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Published Post", "# content", null);
+        Post draftPost = draftService.createDraft("Published Post", "# content", null, null, null);
         PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
         publishService.publish(draftPost.id());
         PostService updateService = createServiceAt("2026-07-30T12:00:00Z");
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> updateService.updatePost(draftPost.id(), "Published Post", "", null, null)
+                () -> updateService.updatePost(draftPost.id(), "Published Post", "", null, null, null, null)
         );
     }
 
     @Test
     void publishDraftChangesStatusAndSetsPublishedAt() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Publish Me", "# content", null);
+        Post draftPost = draftService.createDraft("Publish Me", "# content", null, null, null);
         PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
 
         Post publishedPost = publishService.publish(draftPost.id());
@@ -190,7 +190,7 @@ class PostServiceTest {
     @Test
     void republishKeepsFirstPublishedAt() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Publish Twice", "# content", null);
+        Post draftPost = draftService.createDraft("Publish Twice", "# content", null, null, null);
         PostService firstPublishService = createServiceAt("2026-07-30T11:00:00Z");
         firstPublishService.publish(draftPost.id());
         PostService republishService = createServiceAt("2026-07-30T12:00:00Z");
@@ -205,7 +205,7 @@ class PostServiceTest {
     @Test
     void unpublishPublishedPostChangesStatus() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Unpublish Me", "# content", null);
+        Post draftPost = draftService.createDraft("Unpublish Me", "# content", null, null, null);
         PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
         publishService.publish(draftPost.id());
         PostService unpublishService = createServiceAt("2026-07-30T12:00:00Z");
@@ -220,7 +220,7 @@ class PostServiceTest {
     @Test
     void moveToTrashAndRestoreReturnsPreviousUnpublishedState() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Trash Me", "# content", null);
+        Post draftPost = draftService.createDraft("Trash Me", "# content", null, null, null);
         PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
         publishService.publish(draftPost.id());
         PostService unpublishService = createServiceAt("2026-07-30T12:00:00Z");
@@ -239,7 +239,7 @@ class PostServiceTest {
     @Test
     void publishTrashedPostThrowsInvalidStateTransitionException() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Invalid Publish", "# content", null);
+        Post draftPost = draftService.createDraft("Invalid Publish", "# content", null, null, null);
         PostService trashService = createServiceAt("2026-07-30T11:00:00Z");
         trashService.moveToTrash(draftPost.id());
         PostService publishService = createServiceAt("2026-07-30T12:00:00Z");
@@ -253,11 +253,11 @@ class PostServiceTest {
     @Test
     void updatePostWithUnchangedContentDoesNotIncrementVersion() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Same Title", "# content", null);
+        Post draftPost = draftService.createDraft("Same Title", "# content", null, null, null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
         // 用相同标题、相同正文、不传 slug（保持原值）再次保存。
-        Post result = updateService.updatePost(draftPost.id(), "Same Title", "# content", null, null);
+        Post result = updateService.updatePost(draftPost.id(), "Same Title", "# content", null, null, null, null);
 
         // 内容未变时不递增版本号，避免自动保存产生虚假冲突。
         assertEquals(0L, result.version());
@@ -268,10 +268,10 @@ class PostServiceTest {
     @Test
     void updatePostWithChangedContentIncrementsVersion() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Original", "# old", null);
+        Post draftPost = draftService.createDraft("Original", "# old", null, null, null);
         PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
 
-        Post result = updateService.updatePost(draftPost.id(), "Updated", "# new", null, null);
+        Post result = updateService.updatePost(draftPost.id(), "Updated", "# new", null, null, null, null);
 
         assertEquals(1L, result.version());
     }
@@ -279,14 +279,14 @@ class PostServiceTest {
     @Test
     void updatePostWithChangedTitleBypassesStaleVersionCheck() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Title", "# content", null);
+        Post draftPost = draftService.createDraft("Title", "# content", null, null, null);
         PostService firstUpdateService = createServiceAt("2026-07-30T11:00:00Z");
-        firstUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, 0L);
+        firstUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, null, null, 0L);
         // version 现在是 1
 
         // 用过期的 expectedVersion=0 但内容与当前服务端一致，不应抛冲突。
         PostService secondUpdateService = createServiceAt("2026-07-30T12:00:00Z");
-        Post result = secondUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, 0L);
+        Post result = secondUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, null, null, 0L);
 
         // 内容未变，直接返回当前文章，version 仍为 1。
         assertEquals(1L, result.version());
@@ -295,23 +295,23 @@ class PostServiceTest {
     @Test
     void updatePostWithChangedContentAndStaleVersionThrowsConflict() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Concurrent", "# old", null);
+        Post draftPost = draftService.createDraft("Concurrent", "# old", null, null, null);
         PostService firstUpdateService = createServiceAt("2026-07-30T11:00:00Z");
-        firstUpdateService.updatePost(draftPost.id(), "Concurrent V2", "# updated", null, 0L);
+        firstUpdateService.updatePost(draftPost.id(), "Concurrent V2", "# updated", null, null, null, 0L);
         // version 现在是 1
 
         // 用过期的 expectedVersion=0 且内容不同，应抛冲突。
         PostService staleUpdateService = createServiceAt("2026-07-30T12:00:00Z");
         assertThrows(
                 ConcurrentPostModificationException.class,
-                () -> staleUpdateService.updatePost(draftPost.id(), "Stale", "# stale", null, 0L)
+                () -> staleUpdateService.updatePost(draftPost.id(), "Stale", "# stale", null, null, null, 0L)
         );
     }
 
     @Test
     void getSaveStatusReturnsCurrentPost() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
-        Post draftPost = draftService.createDraft("Status Check", "# content", null);
+        Post draftPost = draftService.createDraft("Status Check", "# content", null, null, null);
 
         Post saveStatus = draftService.getSaveStatus(draftPost.id());
 

@@ -1,13 +1,18 @@
 package com.linqibin.blog.post.infrastructure.persistence;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
 import com.linqibin.blog.post.domain.PostStatus;
@@ -33,6 +38,16 @@ public class PostEntity {
     @Column(nullable = false, length = 20)
     private PostStatus status;
 
+    // 文章所属分类，可以为空（未分类）。
+    @Column(name = "category_id")
+    private UUID categoryId;
+
+    // 文章关联的标签 ID 列表，通过 post_tags 关联表管理多对多关系。
+    @ElementCollection
+    @CollectionTable(name = "post_tags", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "tag_id")
+    private List<UUID> tagIds = new ArrayList<>();
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -51,6 +66,9 @@ public class PostEntity {
     @Column(name = "version", nullable = false)
     private long version;
 
+    @Column(name = "view_count", nullable = false)
+    private long viewCount;
+
     protected PostEntity() {
         // JPA 通过反射创建实体时需要无参构造器。
     }
@@ -61,22 +79,28 @@ public class PostEntity {
             String slug,
             String markdownContent,
             PostStatus status,
+            UUID categoryId,
+            List<UUID> tagIds,
             Instant createdAt,
             Instant updatedAt,
             Instant publishedAt,
             PostStatus previousStatusBeforeTrash,
-            long version
+            long version,
+            long viewCount
     ) {
         this.id = id;
         this.title = title;
         this.slug = slug;
         this.markdownContent = markdownContent;
         this.status = status;
+        this.categoryId = categoryId;
+        this.tagIds = tagIds != null ? new ArrayList<>(tagIds) : new ArrayList<>();
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.publishedAt = publishedAt;
         this.previousStatusBeforeTrash = previousStatusBeforeTrash;
         this.version = version;
+        this.viewCount = viewCount;
     }
 
     public UUID getId() {
@@ -117,5 +141,17 @@ public class PostEntity {
 
     public long getVersion() {
         return version;
+    }
+
+    public long getViewCount() {
+        return viewCount;
+    }
+
+    public UUID getCategoryId() {
+        return categoryId;
+    }
+
+    public List<UUID> getTagIds() {
+        return tagIds;
     }
 }

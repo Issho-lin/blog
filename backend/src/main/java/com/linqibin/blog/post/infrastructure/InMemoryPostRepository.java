@@ -1,5 +1,6 @@
 package com.linqibin.blog.post.infrastructure;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -7,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostRepository;
+import com.linqibin.blog.post.domain.PostStatus;
 
 // 内存版文章仓库：当前用于开发和测试阶段，后续可以替换成数据库实现。
 public class InMemoryPostRepository implements PostRepository {
@@ -49,5 +51,102 @@ public class InMemoryPostRepository implements PostRepository {
     public List<Post> findAll() {
         // 返回不可变快照，避免调用方误改仓库内部状态。
         return List.copyOf(posts.values());
+    }
+
+    @Override
+    public List<Post> findPublishedPosts(int page, int pageSize) {
+        // 过滤已发布文章并按发布时间倒序排列，然后做分页截取。
+        List<Post> published = posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .sorted(Comparator.comparing(Post::publishedAt).reversed())
+                .toList();
+        int fromIndex = (page - 1) * pageSize;
+        if (fromIndex >= published.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(fromIndex + pageSize, published.size());
+        return published.subList(fromIndex, toIndex);
+    }
+
+    @Override
+    public long countPublishedPosts() {
+        return posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .count();
+    }
+
+    @Override
+    public List<Post> findPublishedPostsByCategory(UUID categoryId, int page, int pageSize) {
+        List<Post> filtered = posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> categoryId.equals(post.categoryId()))
+                .sorted(Comparator.comparing(Post::publishedAt).reversed())
+                .toList();
+        int fromIndex = (page - 1) * pageSize;
+        if (fromIndex >= filtered.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(fromIndex + pageSize, filtered.size());
+        return filtered.subList(fromIndex, toIndex);
+    }
+
+    @Override
+    public long countPublishedPostsByCategory(UUID categoryId) {
+        return posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> categoryId.equals(post.categoryId()))
+                .count();
+    }
+
+    @Override
+    public List<Post> findPublishedPostsByTag(UUID tagId, int page, int pageSize) {
+        List<Post> filtered = posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> post.tagIds().contains(tagId))
+                .sorted(Comparator.comparing(Post::publishedAt).reversed())
+                .toList();
+        int fromIndex = (page - 1) * pageSize;
+        if (fromIndex >= filtered.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(fromIndex + pageSize, filtered.size());
+        return filtered.subList(fromIndex, toIndex);
+    }
+
+    @Override
+    public long countPublishedPostsByTag(UUID tagId) {
+        return posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> post.tagIds().contains(tagId))
+                .count();
+    }
+
+    @Override
+    public List<Post> searchPublishedPosts(String keyword, int page, int pageSize) {
+        String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
+        List<Post> matched = posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> normalized.isBlank()
+                        || post.title().toLowerCase().contains(normalized)
+                        || post.markdownContent().toLowerCase().contains(normalized))
+                .sorted(Comparator.comparing(Post::publishedAt).reversed())
+                .toList();
+        int fromIndex = (page - 1) * pageSize;
+        if (fromIndex >= matched.size()) {
+            return List.of();
+        }
+        int toIndex = Math.min(fromIndex + pageSize, matched.size());
+        return matched.subList(fromIndex, toIndex);
+    }
+
+    @Override
+    public long countSearchPublishedPosts(String keyword) {
+        String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
+        return posts.values().stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(post -> normalized.isBlank()
+                        || post.title().toLowerCase().contains(normalized)
+                        || post.markdownContent().toLowerCase().contains(normalized))
+                .count();
     }
 }
