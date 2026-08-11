@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.linqibin.blog.markdown.MarkdownRenderResult;
 import com.linqibin.blog.markdown.MarkdownService;
 
 // Markdown 预览接口：接收编辑器中的 Markdown 原文，返回渲染并清洗后的安全 HTML。
@@ -22,8 +23,8 @@ public class MarkdownController {
 
     @PostMapping("/preview")
     public PreviewResponse preview(@Valid @RequestBody PreviewRequest request) {
-        // 将 Markdown 渲染为安全 HTML，供前端编辑器实时预览使用。
-        String html = markdownService.render(request.markdown());
-        return PreviewResponse.of(html);
+        // 将 Markdown 渲染为安全 HTML 并提取目录，供前端编辑器实时预览和侧边目录使用。
+        MarkdownRenderResult result = markdownService.renderWithTableOfContents(request.markdown());
+        return PreviewResponse.of(result.html(), result.tableOfContents());
     }
 }

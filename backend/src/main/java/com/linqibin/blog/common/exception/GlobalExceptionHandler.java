@@ -14,8 +14,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 
+import com.linqibin.blog.auth.exception.InvalidCredentialsException;
 import com.linqibin.blog.common.api.ApiResponse;
 import com.linqibin.blog.common.request.RequestIdUtils;
+import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
@@ -23,6 +25,21 @@ import com.linqibin.blog.post.exception.PostNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(
+            InvalidCredentialsException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                ApiResponse.error(
+                        "INVALID_CREDENTIALS",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
 
     @ExceptionHandler(PostNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handlePostNotFound(
@@ -41,8 +58,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
             DuplicateSlugException.class,
-            InvalidPostStateTransitionException.class,
-            ConcurrentPostModificationException.class
+            InvalidPostStateTransitionException.class
     })
     public ResponseEntity<ApiResponse<Void>> handlePostConflict(
             RuntimeException exception,
@@ -51,8 +67,6 @@ public class GlobalExceptionHandler {
         String errorCode;
         if (exception instanceof DuplicateSlugException) {
             errorCode = "DUPLICATE_SLUG";
-        } else if (exception instanceof ConcurrentPostModificationException) {
-            errorCode = "CONCURRENT_MODIFICATION";
         } else {
             errorCode = "INVALID_POST_STATE_TRANSITION";
         }
@@ -62,6 +76,39 @@ public class GlobalExceptionHandler {
                         errorCode,
                         exception.getMessage(),
                         null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(ConcurrentPostModificationException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleConcurrentModification(
+            ConcurrentPostModificationException exception,
+            HttpServletRequest request
+    ) {
+        // 返回服务端当前文章数据，让前端对比后决定覆盖、保留本地内容或放弃修改。
+        Map<String, Object> errorData = new LinkedHashMap<>();
+        errorData.put("expectedVersion", exception.getExpectedVersion());
+        errorData.put("actualVersion", exception.getActualVersion());
+
+        if (exception.getCurrentPost() != null) {
+            Post currentPost = exception.getCurrentPost();
+            Map<String, Object> currentPostData = new LinkedHashMap<>();
+            currentPostData.put("id", currentPost.id());
+            currentPostData.put("title", currentPost.title());
+            currentPostData.put("slug", currentPost.slug());
+            currentPostData.put("markdownContent", currentPost.markdownContent());
+            currentPostData.put("status", currentPost.status());
+            currentPostData.put("version", currentPost.version());
+            currentPostData.put("updatedAt", currentPost.updatedAt());
+            errorData.put("currentPost", currentPostData);
+        }
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.error(
+                        "CONCURRENT_MODIFICATION",
+                        exception.getMessage(),
+                        errorData,
                         RequestIdUtils.getRequestId(request)
                 )
         );

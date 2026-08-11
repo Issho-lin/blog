@@ -10,6 +10,7 @@ import java.util.function.Supplier;
 
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostRepository;
+import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.domain.SlugGenerator;
 import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
@@ -52,13 +53,26 @@ public class PostService {
     public Post updatePost(UUID postId, String title, String markdownContent, String requestedSlug, Long expectedVersion) {
         // 编辑文章时先取到当前实体，再决定 slug 是否保留、重算或改成手动值。
         Post currentPost = getPost(postId);
-        // 如果客户端传了 expectedVersion，就检查版本号是否匹配，不匹配说明文章已被其他人修改。
-        if (expectedVersion != null && expectedVersion != currentPost.version()) {
-            throw new ConcurrentPostModificationException(postId, expectedVersion, currentPost.version());
-        }
         String resolvedSlug = resolveSlugForUpdate(currentPost, title, requestedSlug);
-        Post updatedPost = currentPost.update(title, resolvedSlug, defaultContent(markdownContent), Instant.now(clock));
+        String normalizedContent = defaultContent(markdownContent);
+
+        // 自动保存场景下内容可能没有变化，此时直接返回当前文章，不递增版本号，避免虚假冲突。
+        if (contentUnchanged(currentPost, title, resolvedSlug, normalizedContent)) {
+            return currentPost;
+        }
+
+        // 确认内容确实有变化后才检查版本号，不匹配说明文章已被其他人修改。
+        if (expectedVersion != null && expectedVersion != currentPost.version()) {
+            throw new ConcurrentPostModificationException(postId, expectedVersion, currentPost.version(), currentPost);
+        }
+
+        Post updatedPost = currentPost.update(title, resolvedSlug, normalizedContent, Instant.now(clock));
         return postRepository.save(updatedPost);
+    }
+
+    // 轻量查询保存状态：只返回版本号、更新时间和状态，供前端确认服务端最新版本。
+    public Post getSaveStatus(UUID postId) {
+        return getPost(postId);
     }
 
     public Post getPost(UUID postId) {
@@ -69,6 +83,13 @@ public class PostService {
     public Post getPostBySlug(String slug) {
         // 前台读取文章更适合走 slug，因为它比数据库 id 更稳定也更可读。
         return postRepository.findBySlug(slug).orElseThrow(() -> new PostNotFoundException(slug));
+    }
+
+    // 公开接口只返回已发布的文章，草稿、下线、回收站文章对访客不可见。
+    public Post getPublishedPostBySlug(String slug) {
+        return postRepository.findBySlug(slug)
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .orElseThrow(() -> new PostNotFoundException(slug));
     }
 
     public List<Post> searchByTitleKeyword(String keyword) {
@@ -142,6 +163,14 @@ public class PostService {
         return postRepository.findBySlug(slug)
                 .filter(post -> !post.id().equals(currentPost.id()))
                 .isPresent();
+    }
+
+    // 判断标题、slug 和正文是否与当前文章完全一致，用于自动保存的幂等检测。
+    private boolean contentUnchanged(Post currentPost, String title, String resolvedSlug, String normalizedContent) {
+        String trimmedTitle = title != null ? title.trim() : "";
+        return trimmedTitle.equals(currentPost.title())
+                && resolvedSlug.equals(currentPost.slug())
+                && normalizedContent.equals(currentPost.markdownContent());
     }
 
     private String defaultContent(String markdownContent) {

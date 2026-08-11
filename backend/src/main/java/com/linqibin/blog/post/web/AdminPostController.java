@@ -37,6 +37,20 @@ public class AdminPostController {
         return ResponseEntity.status(HttpStatus.CREATED).body(PostResponse.from(createdPost));
     }
 
+    @GetMapping("/{postId}")
+    public PostResponse getPost(@PathVariable UUID postId) {
+        // 编辑器加载文章时调用，返回完整文章数据（含版本号）供前端管理自动保存。
+        Post post = postService.getPost(postId);
+        return PostResponse.from(post);
+    }
+
+    @GetMapping("/{postId}/save-status")
+    public SaveStatusResponse getSaveStatus(@PathVariable UUID postId) {
+        // 轻量查询：只返回版本号、更新时间和状态，前端用于确认服务端最新版本。
+        Post post = postService.getSaveStatus(postId);
+        return SaveStatusResponse.from(post);
+    }
+
     @GetMapping
     public List<PostResponse> listPosts(@RequestParam(required = false) String keyword) {
         // 管理端列表支持按标题关键字过滤，不传关键字时返回全部文章。

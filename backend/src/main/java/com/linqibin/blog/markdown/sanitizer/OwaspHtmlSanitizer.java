@@ -21,6 +21,8 @@ public class OwaspHtmlSanitizer implements HtmlSanitizer {
                         "p", "blockquote", "ul", "ol", "li",
                         "hr", "br"
                 )
+                // 标题允许 id 属性，用于前端锚点跳转和目录导航。
+                .allowAttributes("id").onElements("h1", "h2", "h3", "h4", "h5", "h6")
                 // 行内格式标签：加粗、斜体、删除线、代码
                 .allowElements("strong", "em", "del", "code")
                 // 代码块标签：允许 class 属性用于前端语法高亮

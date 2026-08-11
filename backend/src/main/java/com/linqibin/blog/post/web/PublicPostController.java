@@ -22,8 +22,8 @@ public class PublicPostController {
 
     @GetMapping("/{slug}")
     public PostResponse getPostBySlug(@PathVariable String slug) {
-        // 先从应用层拿到领域对象，再映射成给前端的响应对象。
-        Post post = postService.getPostBySlug(slug);
+        // 公开接口只返回已发布文章，草稿和下线文章对访客不可见。
+        Post post = postService.getPublishedPostBySlug(slug);
         return PostResponse.from(post);
     }
 }

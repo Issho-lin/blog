@@ -11,7 +11,11 @@ public final class RequestIdUtils {
     }
 
     public static String getRequestId(HttpServletRequest request) {
+        // 优先从过滤器设置的属性中获取，回退到请求头，兼容 addFilters=false 的测试场景。
         Object requestId = request.getAttribute(REQUEST_ID_ATTRIBUTE);
+        if (requestId == null) {
+            requestId = request.getHeader(REQUEST_ID_HEADER);
+        }
         return requestId == null ? "" : requestId.toString();
     }
 }

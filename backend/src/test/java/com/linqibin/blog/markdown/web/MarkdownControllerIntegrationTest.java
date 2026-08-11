@@ -16,7 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class MarkdownControllerIntegrationTest {
 
     @Autowired
@@ -38,7 +38,7 @@ class MarkdownControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.message").value("success"))
                 .andExpect(jsonPath("$.requestId").value("preview-request-id"))
-                .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.containsString("<h1>Hello World</h1>")));
+                .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.containsString("<h1 id=\"hello-world\">Hello World</h1>")));
     }
 
     @Test
@@ -54,7 +54,7 @@ class MarkdownControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("<script"))))
                 .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("alert"))))
-                .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.containsString("<h1>Safe</h1>")));
+                .andExpect(jsonPath("$.data.html").value(org.hamcrest.Matchers.containsString("<h1 id=\"safe\">Safe</h1>")));
     }
 
     @Test
@@ -72,5 +72,38 @@ class MarkdownControllerIntegrationTest {
                 .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "blank-preview-request-id"))
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.requestId").value("blank-preview-request-id"));
+    }
+
+    @Test
+    void previewReturnsTableOfContents() throws Exception {
+        mockMvc.perform(post("/api/admin/markdown/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "markdown": "# Title\\n\\n## First Section\\n\\n### Sub\\n\\n## Second Section"
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "toc-preview-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tableOfContents.length()").value(3))
+                .andExpect(jsonPath("$.data.tableOfContents[0].level").value(2))
+                .andExpect(jsonPath("$.data.tableOfContents[0].text").value("First Section"))
+                .andExpect(jsonPath("$.data.tableOfContents[0].anchor").value("first-section"))
+                .andExpect(jsonPath("$.data.tableOfContents[1].level").value(3))
+                .andExpect(jsonPath("$.data.tableOfContents[2].text").value("Second Section"));
+    }
+
+    @Test
+    void previewReturnsEmptyTableOfContentsForNoHeadings() throws Exception {
+        mockMvc.perform(post("/api/admin/markdown/preview")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "markdown": "Just a paragraph."
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "no-toc-preview-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tableOfContents").isEmpty());
     }
 }

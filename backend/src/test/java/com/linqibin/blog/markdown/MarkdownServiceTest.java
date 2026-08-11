@@ -3,8 +3,10 @@ package com.linqibin.blog.markdown;
 import org.junit.jupiter.api.Test;
 
 import com.linqibin.blog.markdown.parser.CommonMarkRenderer;
+import com.linqibin.blog.markdown.parser.TableOfContentsItem;
 import com.linqibin.blog.markdown.sanitizer.OwaspHtmlSanitizer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +22,7 @@ class MarkdownServiceTest {
         String markdown = "# Title\n\nThis is a **bold** paragraph.";
         String html = markdownService.render(markdown);
 
-        assertTrue(html.contains("<h1>Title</h1>"));
+        assertTrue(html.contains("<h1 id=\"title\">Title</h1>"));
         assertTrue(html.contains("<strong>bold</strong>"));
     }
 
@@ -75,5 +77,42 @@ class MarkdownServiceTest {
     @Test
     void returnsEmptyForBlankInput() {
         assertTrue(markdownService.render("   ").isEmpty());
+    }
+
+    @Test
+    void renderWithTableOfContentsReturnsHtmlAndToc() {
+        String markdown = "# Title\n\n## First Section\n\n### Sub\n\n## Second Section\n";
+        MarkdownRenderResult result = markdownService.renderWithTableOfContents(markdown);
+
+        assertTrue(result.html().contains("<h2 id=\"first-section\">First Section</h2>"));
+        assertEquals(3, result.tableOfContents().size());
+        assertEquals("First Section", result.tableOfContents().get(0).text());
+        assertEquals("first-section", result.tableOfContents().get(0).anchor());
+    }
+
+    @Test
+    void renderWithTableOfContentsReturnsEmptyTocForNoHeadings() {
+        MarkdownRenderResult result = markdownService.renderWithTableOfContents("Just a paragraph.");
+
+        assertTrue(result.html().contains("paragraph"));
+        assertTrue(result.tableOfContents().isEmpty());
+    }
+
+    @Test
+    void renderWithTableOfContentsStripsScriptTag() {
+        String markdown = "<script>alert('xss')</script>\n\n## Safe";
+        MarkdownRenderResult result = markdownService.renderWithTableOfContents(markdown);
+
+        assertFalse(result.html().contains("<script"));
+        assertEquals(1, result.tableOfContents().size());
+        assertEquals("Safe", result.tableOfContents().get(0).text());
+    }
+
+    @Test
+    void renderWithTableOfContentsReturnsEmptyForNullInput() {
+        MarkdownRenderResult result = markdownService.renderWithTableOfContents(null);
+
+        assertTrue(result.html().isEmpty());
+        assertTrue(result.tableOfContents().isEmpty());
     }
 }

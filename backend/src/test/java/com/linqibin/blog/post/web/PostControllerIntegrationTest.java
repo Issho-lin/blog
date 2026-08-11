@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class PostControllerIntegrationTest {
 
     @Autowired
@@ -118,14 +118,21 @@ class PostControllerIntegrationTest {
 
     @Test
     void getPostBySlugEndpointReturnsSavedPost() throws Exception {
-        mockMvc.perform(post("/api/admin/posts/drafts")
+        // 创建草稿后需要先发布，公开接口只返回已发布文章。
+        String postId = mockMvc.perform(post("/api/admin/posts/drafts")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "title": "Read Me",
                                   "markdownContent": "# content"
                                 }
-                                """));
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString()
+                .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/public/posts/read-me")
                         .header(RequestIdUtils.REQUEST_ID_HEADER, "get-post-request-id"))
@@ -414,7 +421,12 @@ class PostControllerIntegrationTest {
                 .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "stale-version-request-id"))
                 .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("文章已被其他人修改")))
-                .andExpect(jsonPath("$.requestId").value("stale-version-request-id"));
+                .andExpect(jsonPath("$.requestId").value("stale-version-request-id"))
+                // 409 响应中应包含服务端当前文章数据，让前端对比后决定处理方式。
+                .andExpect(jsonPath("$.data.expectedVersion").value(0))
+                .andExpect(jsonPath("$.data.actualVersion").value(1))
+                .andExpect(jsonPath("$.data.currentPost.title").value("Concurrent Post Updated"))
+                .andExpect(jsonPath("$.data.currentPost.version").value(1));
     }
 
     @Test
@@ -441,6 +453,60 @@ class PostControllerIntegrationTest {
                         .header(RequestIdUtils.REQUEST_ID_HEADER, "no-version-check-request-id"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("Second Update"));
+    }
+
+    @Test
+    void getPostByIdEndpointReturnsSinglePost() throws Exception {
+        UUID postId = createDraft("Single Post", "# content");
+
+        mockMvc.perform(get("/api/admin/posts/" + postId)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "get-post-by-id-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "get-post-by-id-request-id"))
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.requestId").value("get-post-by-id-request-id"))
+                .andExpect(jsonPath("$.data.id").value(postId.toString()))
+                .andExpect(jsonPath("$.data.title").value("Single Post"))
+                .andExpect(jsonPath("$.data.markdownContent").value("# content"))
+                .andExpect(jsonPath("$.data.version").value(0));
+    }
+
+    @Test
+    void getSaveStatusEndpointReturnsLightweightStatus() throws Exception {
+        UUID postId = createDraft("Status Post", "# content");
+
+        mockMvc.perform(get("/api/admin/posts/" + postId + "/save-status")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "save-status-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "save-status-request-id"))
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.message").value("success"))
+                .andExpect(jsonPath("$.requestId").value("save-status-request-id"))
+                .andExpect(jsonPath("$.data.version").value(0))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.updatedAt").isNotEmpty());
+    }
+
+    @Test
+    void updateWithUnchangedContentDoesNotIncrementVersion() throws Exception {
+        UUID postId = createDraft("Idempotent Post", "# content");
+        // version 为 0
+
+        // 用相同标题、相同正文、不传 slug 再次保存。
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Idempotent Post",
+                                  "markdownContent": "# content"
+                                }
+                                """)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "idempotent-update-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(0));
     }
 
     private UUID createDraft(String title, String markdownContent) throws Exception {

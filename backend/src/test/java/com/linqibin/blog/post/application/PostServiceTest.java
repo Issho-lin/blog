@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.domain.SlugGenerator;
+import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.infrastructure.InMemoryPostRepository;
@@ -247,6 +248,76 @@ class PostServiceTest {
                 InvalidPostStateTransitionException.class,
                 () -> publishService.publish(draftPost.id())
         );
+    }
+
+    @Test
+    void updatePostWithUnchangedContentDoesNotIncrementVersion() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Same Title", "# content", null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        // 用相同标题、相同正文、不传 slug（保持原值）再次保存。
+        Post result = updateService.updatePost(draftPost.id(), "Same Title", "# content", null, null);
+
+        // 内容未变时不递增版本号，避免自动保存产生虚假冲突。
+        assertEquals(0L, result.version());
+        // 更新时间也保持不变，因为没有实际修改。
+        assertEquals(draftPost.updatedAt(), result.updatedAt());
+    }
+
+    @Test
+    void updatePostWithChangedContentIncrementsVersion() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Original", "# old", null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        Post result = updateService.updatePost(draftPost.id(), "Updated", "# new", null, null);
+
+        assertEquals(1L, result.version());
+    }
+
+    @Test
+    void updatePostWithChangedTitleBypassesStaleVersionCheck() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Title", "# content", null);
+        PostService firstUpdateService = createServiceAt("2026-07-30T11:00:00Z");
+        firstUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, 0L);
+        // version 现在是 1
+
+        // 用过期的 expectedVersion=0 但内容与当前服务端一致，不应抛冲突。
+        PostService secondUpdateService = createServiceAt("2026-07-30T12:00:00Z");
+        Post result = secondUpdateService.updatePost(draftPost.id(), "Title V2", "# content", null, 0L);
+
+        // 内容未变，直接返回当前文章，version 仍为 1。
+        assertEquals(1L, result.version());
+    }
+
+    @Test
+    void updatePostWithChangedContentAndStaleVersionThrowsConflict() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Concurrent", "# old", null);
+        PostService firstUpdateService = createServiceAt("2026-07-30T11:00:00Z");
+        firstUpdateService.updatePost(draftPost.id(), "Concurrent V2", "# updated", null, 0L);
+        // version 现在是 1
+
+        // 用过期的 expectedVersion=0 且内容不同，应抛冲突。
+        PostService staleUpdateService = createServiceAt("2026-07-30T12:00:00Z");
+        assertThrows(
+                ConcurrentPostModificationException.class,
+                () -> staleUpdateService.updatePost(draftPost.id(), "Stale", "# stale", null, 0L)
+        );
+    }
+
+    @Test
+    void getSaveStatusReturnsCurrentPost() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Status Check", "# content", null);
+
+        Post saveStatus = draftService.getSaveStatus(draftPost.id());
+
+        assertEquals(draftPost.version(), saveStatus.version());
+        assertEquals(draftPost.updatedAt(), saveStatus.updatedAt());
+        assertEquals(draftPost.status(), saveStatus.status());
     }
 
     private PostService createServiceAt(String instantValue) {

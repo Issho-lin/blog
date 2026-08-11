@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("jpa")
 @TestPropertySource(properties = {
         "DB_HOST=localhost",
@@ -129,7 +129,10 @@ class PostControllerJpaIntegrationTest {
 
     @Test
     void publicGetEndpointReadsPostFromPostgreSql() throws Exception {
-        createDraft("Read From DB", "# content");
+        UUID postId = createDraft("Read From DB", "# content");
+        // 发布后公开接口才能读取。
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"))
+                .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/public/posts/read-from-db")
                         .header(RequestIdUtils.REQUEST_ID_HEADER, "public-read-jpa-request-id"))

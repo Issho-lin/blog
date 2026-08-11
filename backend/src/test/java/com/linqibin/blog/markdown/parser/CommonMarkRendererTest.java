@@ -1,9 +1,12 @@
 package com.linqibin.blog.markdown.parser;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 class CommonMarkRendererTest {
 
@@ -13,7 +16,7 @@ class CommonMarkRendererTest {
     void rendersHeadingAndParagraph() {
         String html = renderer.renderToHtml("# Title\n\nHello world.");
 
-        assertTrue(html.contains("<h1>Title</h1>"));
+        assertTrue(html.contains("<h1 id=\"title\">Title</h1>"));
         assertTrue(html.contains("<p>Hello world.</p>"));
     }
 
@@ -102,5 +105,67 @@ class CommonMarkRendererTest {
     @Test
     void returnsEmptyForBlankInput() {
         assertEquals("", renderer.renderToHtml("   "));
+    }
+
+    @Test
+    void extractTableOfContentsReturnsH2AndH3Headings() {
+        String markdown = "# Title\n\n## First Section\n\n### Subsection\n\n## Second Section\n";
+        List<TableOfContentsItem> toc = renderer.extractTableOfContents(markdown);
+
+        assertEquals(3, toc.size());
+        assertEquals(2, toc.get(0).level());
+        assertEquals("First Section", toc.get(0).text());
+        assertEquals("first-section", toc.get(0).anchor());
+        assertEquals(3, toc.get(1).level());
+        assertEquals("Subsection", toc.get(1).text());
+        assertEquals("subsection", toc.get(1).anchor());
+        assertEquals(2, toc.get(2).level());
+        assertEquals("Second Section", toc.get(2).text());
+        assertEquals("second-section", toc.get(2).anchor());
+    }
+
+    @Test
+    void extractTableOfContentsExcludesH1AndH4() {
+        String markdown = "# Title\n\n## Section\n\n#### Deep Heading\n";
+        List<TableOfContentsItem> toc = renderer.extractTableOfContents(markdown);
+
+        assertEquals(1, toc.size());
+        assertEquals(2, toc.get(0).level());
+        assertEquals("Section", toc.get(0).text());
+    }
+
+    @Test
+    void extractTableOfContentsHandlesDuplicateHeadings() {
+        String markdown = "## Same Title\n\n## Same Title\n";
+        List<TableOfContentsItem> toc = renderer.extractTableOfContents(markdown);
+
+        assertEquals(2, toc.size());
+        assertEquals("same-title", toc.get(0).anchor());
+        assertEquals("same-title-2", toc.get(1).anchor());
+    }
+
+    @Test
+    void extractTableOfContentsAnchorMatchesRenderedHtmlId() {
+        String markdown = "## Test Heading\n";
+        String html = renderer.renderToHtml(markdown);
+        List<TableOfContentsItem> toc = renderer.extractTableOfContents(markdown);
+
+        assertEquals(1, toc.size());
+        assertTrue(html.contains("id=\"" + toc.get(0).anchor() + "\""));
+    }
+
+    @Test
+    void extractTableOfContentsReturnsEmptyForNullInput() {
+        assertTrue(renderer.extractTableOfContents(null).isEmpty());
+    }
+
+    @Test
+    void extractTableOfContentsReturnsEmptyForBlankInput() {
+        assertTrue(renderer.extractTableOfContents("   ").isEmpty());
+    }
+
+    @Test
+    void extractTableOfContentsReturnsEmptyForNoHeadings() {
+        assertTrue(renderer.extractTableOfContents("Just a paragraph.").isEmpty());
     }
 }
