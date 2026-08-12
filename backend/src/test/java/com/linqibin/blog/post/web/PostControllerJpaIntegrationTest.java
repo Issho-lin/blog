@@ -2,20 +2,16 @@ package com.linqibin.blog.post.web;
 
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.linqibin.blog.common.request.RequestIdUtils;
 import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.infrastructure.persistence.PostEntity;
-import com.linqibin.blog.post.infrastructure.persistence.SpringDataPostRepository;
+import com.linqibin.blog.support.AbstractJpaIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,28 +21,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
-@ActiveProfiles("jpa")
-@TestPropertySource(properties = {
-        "DB_HOST=localhost",
-        "DB_PORT=5432",
-        "DB_NAME=blog",
-        "DB_USER=blog",
-        "DB_PASSWORD=blog"
-})
-class PostControllerJpaIntegrationTest {
+class PostControllerJpaIntegrationTest extends AbstractJpaIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private SpringDataPostRepository springDataPostRepository;
-
-    @BeforeEach
-    void setUp() {
-        springDataPostRepository.deleteAll();
-    }
 
     @Test
     void createDraftEndpointPersistsEntityToPostgreSql() throws Exception {
@@ -130,7 +109,6 @@ class PostControllerJpaIntegrationTest {
     @Test
     void publicGetEndpointReadsPostFromPostgreSql() throws Exception {
         UUID postId = createDraft("Read From DB", "# content");
-        // 发布后公开接口才能读取。
         mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"))
                 .andExpect(status().isOk());
 

@@ -68,8 +68,12 @@ public class PostImportExportService {
     // 导入 Markdown 文件内容，创建草稿文章。
     // filename 用于在缺少 title 时回退生成标题。
     public Post importMarkdown(String filename, byte[] content) {
-        Objects.requireNonNull(filename, "filename 不能为空");
-        Objects.requireNonNull(content, "content 不能为空");
+        if (filename == null || filename.isBlank()) {
+            throw new InvalidFileException("文件名不能为空");
+        }
+        if (content == null || content.length == 0) {
+            throw new InvalidFileException("文件内容不能为空");
+        }
 
         validateImportFile(filename, content.length);
         String markdown = new String(content, StandardCharsets.UTF_8);

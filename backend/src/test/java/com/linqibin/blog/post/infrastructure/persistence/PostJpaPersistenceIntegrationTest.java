@@ -2,40 +2,20 @@ package com.linqibin.blog.post.infrastructure.persistence;
 
 import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 
 import com.linqibin.blog.post.application.PostService;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
+import com.linqibin.blog.support.AbstractJpaIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-@ActiveProfiles("jpa")
-@TestPropertySource(properties = {
-        "DB_HOST=localhost",
-        "DB_PORT=5432",
-        "DB_NAME=blog",
-        "DB_USER=blog",
-        "DB_PASSWORD=blog"
-})
-class PostJpaPersistenceIntegrationTest {
+class PostJpaPersistenceIntegrationTest extends AbstractJpaIntegrationTest {
 
     @Autowired
     private PostService postService;
-
-    @Autowired
-    private SpringDataPostRepository springDataPostRepository;
-
-    @BeforeEach
-    void setUp() {
-        springDataPostRepository.deleteAll();
-    }
 
     @Test
     void createDraftPersistsPostToPostgreSql() {

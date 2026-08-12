@@ -4,7 +4,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        boot.allow_jdbc_metadata_access: true
 
 blog:
   post:
+    repository-type: jpa
+  auth:
+    repository-type: jpa
+  taxonomy:
     repository-type: jpa

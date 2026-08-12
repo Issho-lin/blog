@@ -1,7 +1,9 @@
 package com.linqibin.blog.common.api;
 
 import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -27,6 +29,17 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
             MethodParameter returnType,
             Class<? extends HttpMessageConverter<?>> converterType
     ) {
+        Class<?> parameterType = returnType.getParameterType();
+        if (parameterType == byte[].class || parameterType == Byte[].class) {
+            return false;
+        }
+
+        // ResponseEntity<byte[]> 这类下载接口也不进入统一 JSON 包装。
+        if (ResponseEntity.class.isAssignableFrom(parameterType)) {
+            Class<?> bodyType = resolveResponseEntityBodyType(returnType);
+            return bodyType != byte[].class && bodyType != Byte[].class;
+        }
+
         return true;
     }
 
@@ -56,5 +69,9 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
         }
 
         return apiResponse;
+    }
+
+    private Class<?> resolveResponseEntityBodyType(MethodParameter returnType) {
+        return ResolvableType.forMethodParameter(returnType).as(ResponseEntity.class).getGeneric(0).resolve();
     }
 }

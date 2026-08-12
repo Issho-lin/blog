@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.linqibin.blog.auth.application.AuthService;
 import com.linqibin.blog.auth.infrastructure.InMemoryUserRepository;
 import com.linqibin.blog.post.infrastructure.InMemoryPostRepository;
+import com.linqibin.blog.support.AuthTestSupport;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -36,15 +37,15 @@ class AuthControllerIntegrationTest {
     @Autowired
     private AuthService authService;
 
-    private static final String TEST_EMAIL = "admin@blog.com";
-    private static final String TEST_PASSWORD = "admin123";
-
     @BeforeEach
     void setUp() {
         userRepository.clear();
         postRepository.clear();
-        // 预置测试用户。
-        authService.initializeDefaultAdmin(TEST_EMAIL, TEST_PASSWORD, "Admin");
+        authService.initializeDefaultAdmin(
+                AuthTestSupport.DEFAULT_ADMIN_EMAIL,
+                AuthTestSupport.DEFAULT_ADMIN_PASSWORD,
+                AuthTestSupport.DEFAULT_ADMIN_NAME
+        );
     }
 
     @Test
@@ -135,7 +136,7 @@ class AuthControllerIntegrationTest {
     @Test
     void afterLoginCanAccessAdminPosts() throws Exception {
         // 先登录获取 Session。
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         // 用同一 Session 访问管理端文章列表，应返回 200。
         mockMvc.perform(get("/api/admin/posts").session(session))
@@ -145,7 +146,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void afterLoginCanCreateDraft() throws Exception {
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         mockMvc.perform(post("/api/admin/posts/drafts")
                         .session(session)
@@ -163,7 +164,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void getCurrentUserReturnsUserInfoAfterLogin() throws Exception {
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         mockMvc.perform(get("/api/auth/me").session(session))
                 .andExpect(status().isOk())
@@ -182,7 +183,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void logoutInvalidatesSession() throws Exception {
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         // 退出登录。
         mockMvc.perform(post("/api/auth/logout").session(session))
@@ -196,7 +197,7 @@ class AuthControllerIntegrationTest {
     @Test
     void publicEndpointReturnsPublishedPost() throws Exception {
         // 登录后创建并发布一篇文章。
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         MvcResult createResult = mockMvc.perform(post("/api/admin/posts/drafts")
                         .session(session)
@@ -230,7 +231,7 @@ class AuthControllerIntegrationTest {
     @Test
     void publicEndpointReturns404ForDraftPost() throws Exception {
         // 登录后创建一篇草稿但不发布。
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         mockMvc.perform(post("/api/admin/posts/drafts")
                         .session(session)
@@ -253,7 +254,7 @@ class AuthControllerIntegrationTest {
     @Test
     void publicEndpointReturns404ForUnpublishedPost() throws Exception {
         // 创建并发布一篇文章，然后下线。
-        MockHttpSession session = loginAndGetSession();
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
 
         MvcResult createResult = mockMvc.perform(post("/api/admin/posts/drafts")
                         .session(session)
@@ -292,20 +293,5 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data.status").value("UP"));
-    }
-
-    // 辅助方法：执行登录并返回 Session。
-    private MockHttpSession loginAndGetSession() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "email": "admin@blog.com",
-                                  "password": "admin123"
-                                }
-                                """))
-                .andExpect(status().isOk())
-                .andReturn();
-        return (MockHttpSession) result.getRequest().getSession();
     }
 }

@@ -1,0 +1,14 @@
+# 忽略本地构建与上传产物
+backend/target/
+backend/uploads/
+uploads/
+.env
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store

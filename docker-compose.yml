@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     container_name: blog-postgres
     restart: unless-stopped
     environment:
@@ -19,7 +19,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: ${REDIS_IMAGE:-redis:7-alpine}
     container_name: blog-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
@@ -33,6 +33,50 @@ services:
       timeout: 5s
       retries: 5
 
+  # 默认不启动；本地开发一般只起数据库，后端用 IDEA 跑。
+  # 全栈容器启动：docker compose --profile app up -d --build
+  backend:
+    profiles: ["app"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        JDK_IMAGE: ${JDK_IMAGE:-eclipse-temurin:17-jdk-alpine}
+        JRE_IMAGE: ${JRE_IMAGE:-eclipse-temurin:17-jre-alpine}
+    container_name: blog-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: jpa
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-blog}
+      DB_USER: ${DB_USER:-blog}
+      DB_PASSWORD: ${DB_PASSWORD:-blog}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@blog.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      MEDIA_UPLOAD_DIR: /app/uploads
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - backend_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+
 volumes:
   postgres_data:
   redis_data:
+  backend_uploads:

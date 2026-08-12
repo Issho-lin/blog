@@ -1,14 +1,15 @@
 # 个人博客项目
 
-这是个人博客项目的开发仓库。当前已完成第 1 周的后端初始化骨架，重点是把后端工程、基础接口和本地依赖服务先搭起来。
+后端已完成阶段 0-10 核心能力，并开始阶段 11：Docker 部署。
 
 ## 当前目录结构
 
 ```text
 blog
-├── backend                     Spring Boot 后端工程
+├── backend                     Spring Boot 后端工程（含 Dockerfile）
 ├── frontend                    前端工程占位目录
-├── docker-compose.yml          本地 PostgreSQL / Redis
+├── docker-compose.yml          PostgreSQL / Redis / 后端应用
+├── .env.example                环境变量示例
 ├── 产品需求文档-个人博客.md
 ├── 架构设计与技术选型-个人博客.md
 └── Java学习开发计划-个人博客.md
@@ -17,117 +18,154 @@ blog
 ## 技术栈
 
 - 后端：Java 17、Spring Boot 4.1、Maven Wrapper
-- 数据库：PostgreSQL
-- 缓存：Redis
+- 数据库：PostgreSQL + Flyway
+- 缓存：Redis（Session / 限流预留）
+- 安全：Spring Security + HttpOnly Cookie Session
+- 部署：Docker Compose
 
 ## 已完成内容
 
-- 使用 Spring Initializr 创建 `backend` 工程
-- 增加 `GET /api/health` 健康检查接口
-- 增加首个 Web 层 JUnit 测试
-- 提供本地 `PostgreSQL` 和 `Redis` 的 `docker-compose.yml`
-- 预留 `frontend` 目录，后续用于初始化前端项目
+- 文章 CRUD、发布/下线、公开阅读与归档 API
+- Markdown 预览、HTML 清洗、Front Matter 导入导出
+- 分类 / 标签、图片上传、作者登录与权限保护
+- 统一错误响应、请求链路 ID、Bean Validation
+- 单元测试与集成测试覆盖核心业务与安全链路
+- 多阶段 Dockerfile，以及 Compose 一键启动后端 + 数据库
 
-## 本地依赖启动
+## 一键启动（推荐）
 
-在仓库根目录执行：
+复制环境变量模板：
+
+```bash
+cp .env.example .env
+```
+
+**日常开发**（只起数据库和 Redis，后端用 IDEA 运行）：
 
 ```bash
 docker compose up -d
 ```
 
-默认端口：
+**整套容器启动**（含后端镜像构建）：
 
+```bash
+docker compose --profile app up -d --build
+```
+
+若构建时报 `auth.docker.io` / `i/o timeout`，说明访问 Docker Hub 不稳定。在 `.env` 中启用镜像加速地址，例如：
+
+```text
+JDK_IMAGE=docker.m.daocloud.io/library/eclipse-temurin:17-jdk-alpine
+JRE_IMAGE=docker.m.daocloud.io/library/eclipse-temurin:17-jre-alpine
+POSTGRES_IMAGE=docker.m.daocloud.io/library/postgres:17-alpine
+REDIS_IMAGE=docker.m.daocloud.io/library/redis:7-alpine
+```
+
+也可在 Docker Desktop → Settings → Docker Engine 增加 `registry-mirrors`。
+
+访问：
+
+- 健康检查：`http://localhost:8080/api/health`
 - PostgreSQL：`5432`
 - Redis：`6379`
 
-默认账号：
+默认管理员（可用 `.env` 覆盖）：
 
-- PostgreSQL database：`blog`
-- PostgreSQL username：`blog`
-- PostgreSQL password：`blog`
+- 邮箱：`admin@blog.com`
+- 密码：`admin123`
+
+查看日志：
+
+```bash
+docker compose logs -f backend
+```
+
+停止：
+
+```bash
+docker compose down
+```
+
+上传图片保存在 Docker volume `backend_uploads` 中，容器重建后仍会保留。
+
+## 仅启动依赖（本地 IDEA 开发）
+
+只起数据库和 Redis：
+
+```bash
+docker compose up -d postgres redis
+```
+
+然后在 IDEA 运行 `BackendApplication`，或：
+
+```bash
+cd backend
+SPRING_PROFILES_ACTIVE=jpa ./mvnw spring-boot:run
+```
+
+不设 `jpa` profile 时默认使用内存仓库，适合快速联调接口。
 
 ## 后端配置
 
-后端默认读取以下环境变量；如果未设置，会使用本地开发默认值：
+主要环境变量：
 
 ```text
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=blog
-DB_USER=blog
-DB_PASSWORD=blog
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-REDIS_DATABASE=0
-```
-
-对应文件：`backend/src/main/resources/application.yaml`
-
-## 数据库建表脚本
-
-当前文章表的版本化 SQL 脚本位于：
-
-```text
-backend/src/main/resources/db/migration/V1__create_posts_table.sql
-```
-
-在本地 PostgreSQL 已启动后，可以手动执行：
-
-```bash
-psql "postgresql://blog:blog@localhost:5432/blog" -f backend/src/main/resources/db/migration/V1__create_posts_table.sql
-```
-
-如果使用了自定义环境变量，请将连接串替换成自己的数据库地址、用户名和密码。
-
-## Flyway 与仓库模式
-
-后端默认使用内存仓库：
-
-```text
-blog.post.repository-type=in-memory
-spring.flyway.enabled=false
-```
-
-当需要切到 PostgreSQL + JPA 时，启用 `jpa` profile：
-
-```bash
+DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD
+REDIS_HOST / REDIS_PORT
+ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME
+CORS_ALLOWED_ORIGINS
+MEDIA_UPLOAD_DIR
 SPRING_PROFILES_ACTIVE=jpa
 ```
 
-启用后会自动生效：
+对应文件：`backend/src/main/resources/application.yaml`  
+JPA 模式覆盖：`backend/src/main/resources/application-jpa.yaml`
 
-- `blog.post.repository-type=jpa`
-- `spring.flyway.enabled=true`
-- 启动时自动执行 `backend/src/main/resources/db/migration` 下尚未执行过的 migration
-- JPA 使用 `ddl-auto=validate` 校验实体与表结构是否一致
+## Flyway 与仓库模式
 
-## 后端启动方式
+默认：
 
-推荐直接通过 IDEA 打开 `backend` 工程后运行 `BackendApplication`。
-
-如果使用命令行，可在 `backend` 目录下执行：
-
-```bash
-./mvnw spring-boot:run
+```text
+blog.*.repository-type=in-memory
+spring.flyway.enabled=false
 ```
 
-## 测试
+启用 `jpa` profile 后：
 
-在 `backend` 目录下执行：
+- `post` / `auth` / `taxonomy` 全部切到 JPA
+- Flyway 自动执行 `backend/src/main/resources/db/migration`
+- Hibernate `ddl-auto=validate`
+
+## 测试与质量检查
 
 ```bash
+cd backend
 ./mvnw test
+./mvnw validate
 ```
 
-当前已包含：
+- `./mvnw test`：单元测试 + 接口集成测试
+- `./mvnw validate`：Enforcer 检查 JDK >= 17
+- 仓库根目录有 `.editorconfig`，统一缩进与换行
 
-- `GET /api/health` 返回 `{"status":"UP"}` 的接口测试
+JPA 相关测试需要本地 PostgreSQL 已启动。
+
+## 数据库备份与恢复（简版）
+
+备份：
+
+```bash
+docker compose exec postgres pg_dump -U blog blog > backup.sql
+```
+
+恢复：
+
+```bash
+cat backup.sql | docker compose exec -T postgres psql -U blog blog
+```
 
 ## 下一步建议
 
-1. 启动 PostgreSQL 和 Redis
-2. 在 IDEA 中运行后端工程，确认 `/api/health`
-3. 初始化前端工程
-4. 开始补充统一响应结构、请求链路 ID 和文章领域模型
+1. 初始化 Next.js 前端，完成公开站与后台联调
+2. 补齐生产 HTTPS、域名与更完整的备份演练
+3. 按需继续重构重复业务代码
