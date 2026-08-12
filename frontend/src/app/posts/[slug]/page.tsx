@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { PostContent } from "@/components/PostContent";
 import { ApiError } from "@/lib/api/client";
 import { getPublishedPost } from "@/lib/api/posts";
 
@@ -89,10 +90,7 @@ export default async function PostDetailPage({ params }: PageProps) {
               )}
             </header>
 
-            <div
-              className="prose-blog soft-in-delay mt-10"
-              dangerouslySetInnerHTML={{ __html: post.html }}
-            />
+            <PostContent html={post.html} />
           </article>
 
           {post.tableOfContents?.length > 0 ? (

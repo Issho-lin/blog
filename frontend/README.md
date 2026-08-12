@@ -21,6 +21,7 @@ Next.js 公开站 + 管理端前端，对接 `backend` REST API。
 ## 编辑器说明
 
 - 使用 **Vditor** 即时渲染（IR），体验接近语雀：工具栏排版、大纲、预览、可切换所见即所得。
+- 支持 **Mermaid 文本绘图**（流程图 / 时序图 / 类图等）；编辑器可一键插入模板，公开文章页自动渲染。
 - 标题 / 正文变更后 **1 秒防抖** 自动保存，携带 `expectedVersion` 做乐观锁。
 - 图片上传走 `/api/admin/media/images`，粘贴或工具栏上传后插入 Markdown。
 - 版本冲突（409 `CONCURRENT_MODIFICATION`）时提示重新加载，避免覆盖他人修改。

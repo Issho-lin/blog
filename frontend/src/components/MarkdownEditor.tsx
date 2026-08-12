@@ -103,9 +103,12 @@ export function MarkdownEditor({
     host.innerHTML = "";
 
     const editor = new Vditor(host, {
+      // 本地静态资源，含 mermaid / plantuml 等绘图脚本
+      cdn: "/vditor",
       height: Math.max(520, window.innerHeight - 300),
       mode: "ir",
-      placeholder: "开始写作… 可用工具栏或快捷键排版，支持粘贴/上传图片",
+      placeholder:
+        "开始写作… 支持 ```mermaid 文本绘图，可用工具栏插入示意图",
       cache: { enable: false },
       toolbarConfig: { pin: true },
       counter: { enable: true, type: "text" },
@@ -138,6 +141,28 @@ export function MarkdownEditor({
         "inline-code",
         "table",
         "|",
+        {
+          name: "mermaid",
+          tip: "插入 Mermaid 图",
+          className: "vditor-menu__mermaid",
+          icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4"/></svg>',
+          click() {
+            if (!editorRef.current || !readyRef.current) return;
+            editorRef.current.insertValue(
+              [
+                "",
+                "```mermaid",
+                "flowchart TD",
+                "  A[开始] --> B{判断}",
+                "  B -->|是| C[处理]",
+                "  B -->|否| D[结束]",
+                "  C --> D",
+                "```",
+                "",
+              ].join("\n")
+            );
+          },
+        },
         "upload",
         "|",
         "undo",

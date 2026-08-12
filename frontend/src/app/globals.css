@@ -147,6 +147,25 @@ a {
   border-radius: 0.5rem;
 }
 
+.mermaid-diagram {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 1rem;
+}
+
+.mermaid-diagram .mermaid {
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .prose-blog pre code {
   background: transparent;
   padding: 0;
