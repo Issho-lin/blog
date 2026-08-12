@@ -30,6 +30,30 @@ class SummaryGeneratorTest {
     }
 
     @Test
+    void stripsHeadingSyntaxOnEveryLine() {
+        String markdown = "### 基础RAG的问题\n\n#### 索引构建\n\n正文内容在这里。";
+        String plain = SummaryGenerator.stripMarkdown(markdown);
+        assertTrue(!plain.contains("###"));
+        assertTrue(!plain.contains("####"));
+        assertTrue(plain.contains("基础RAG的问题"));
+        assertTrue(plain.contains("正文内容在这里。"));
+    }
+
+    @Test
+    void generateCollapsesToSingleParagraphWithoutMarkdownMarkers() {
+        String markdown = """
+                ### 基础RAG的问题
+                #### 索引构建
+                + 信息提取不完整
+                + 分块策略单一
+                """;
+        String summary = SummaryGenerator.generate(markdown, 80);
+        assertTrue(!summary.contains("#"));
+        assertTrue(!summary.contains("+"));
+        assertTrue(summary.contains("基础RAG的问题"));
+    }
+
+    @Test
     void stripsHeadingSyntax() {
         String markdown = "## Heading\n\nSome content here.";
         String plain = SummaryGenerator.stripMarkdown(markdown);

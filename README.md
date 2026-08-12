@@ -1,13 +1,13 @@
 # 个人博客项目
 
-后端已完成阶段 0-10 核心能力，并开始阶段 11：Docker 部署。
+这是个人博客项目的开发仓库。后端已完成阶段 0-11 核心能力，前端已初始化并完成公开阅读与管理登录联调切片。
 
 ## 当前目录结构
 
 ```text
 blog
 ├── backend                     Spring Boot 后端工程（含 Dockerfile）
-├── frontend                    前端工程占位目录
+├── frontend                    Next.js 公开站 + 管理端
 ├── docker-compose.yml          PostgreSQL / Redis / 后端应用
 ├── .env.example                环境变量示例
 ├── 产品需求文档-个人博客.md
@@ -31,6 +31,7 @@ blog
 - 统一错误响应、请求链路 ID、Bean Validation
 - 单元测试与集成测试覆盖核心业务与安全链路
 - 多阶段 Dockerfile，以及 Compose 一键启动后端 + 数据库
+- Next.js 前端：公开首页、文章详情、管理登录与文章列表联调
 
 ## 一键启动（推荐）
 
@@ -68,6 +69,18 @@ REDIS_IMAGE=docker.m.daocloud.io/library/redis:7-alpine
 - 健康检查：`http://localhost:8080/api/health`
 - PostgreSQL：`5432`
 - Redis：`6379`
+
+## 前端启动
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+打开 `http://localhost:3000`。前端会把 `/api` 代理到 `http://localhost:8080`。
+
+已实现：公开首页、文章详情、管理登录、文章列表（新建草稿 / 发布）。
 
 默认管理员（可用 `.env` 覆盖）：
 
@@ -166,6 +179,6 @@ cat backup.sql | docker compose exec -T postgres psql -U blog blog
 
 ## 下一步建议
 
-1. 初始化 Next.js 前端，完成公开站与后台联调
-2. 补齐生产 HTTPS、域名与更完整的备份演练
+1. 补齐前端编辑器、自动保存、归档/分类/搜索
+2. 补齐生产 HTTPS、域名与更完整备份演练
 3. 按需继续重构重复业务代码
