@@ -14,6 +14,7 @@ import com.linqibin.blog.post.infrastructure.persistence.PostEntity;
 import com.linqibin.blog.support.AbstractJpaIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -104,6 +105,20 @@ class PostControllerJpaIntegrationTest extends AbstractJpaIntegrationTest {
         assertThat(restoredEntity.getStatus()).isEqualTo(PostStatus.UNPUBLISHED);
         assertThat(restoredEntity.getPreviousStatusBeforeTrash()).isNull();
         assertThat(restoredEntity.getPublishedAt()).isNotNull();
+    }
+
+    @Test
+    void permanentlyDeleteEndpointRemovesTrashedPostFromPostgreSql() throws Exception {
+        UUID postId = createDraft("Purge Me", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/trash"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/admin/posts/" + postId)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "delete-jpa-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "delete-jpa-request-id"));
+
+        assertThat(springDataPostRepository.findById(postId)).isEmpty();
     }
 
     @Test

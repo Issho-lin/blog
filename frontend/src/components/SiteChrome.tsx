@@ -1,9 +1,50 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SealMark } from "@/components/SealMark";
 
-const siteName = process.env.NEXT_PUBLIC_SITE_NAME ?? "Linqibin Blog";
+const navItems = [
+  {
+    href: "/",
+    label: "文章",
+    match: (path: string) => path === "/" || path.startsWith("/posts/"),
+  },
+  {
+    href: "/archive",
+    label: "归档",
+    match: (path: string) => path === "/archive",
+  },
+  {
+    href: "/categories",
+    label: "分类",
+    match: (path: string) => path.startsWith("/categories"),
+  },
+  {
+    href: "/tags",
+    label: "标签",
+    match: (path: string) => path.startsWith("/tags"),
+  },
+  {
+    href: "/search",
+    label: "搜索",
+    match: (path: string) => path.startsWith("/search"),
+  },
+  {
+    href: "/about",
+    label: "关于",
+    match: (path: string) => path === "/about",
+  },
+  {
+    href: "/admin/posts",
+    label: "管理",
+    match: (path: string) => path.startsWith("/admin"),
+  },
+] as const;
 
-export function SiteHeader() {
+export function SiteHeader({ siteName }: { siteName: string }) {
+  const pathname = usePathname();
+
   return (
     <header className="relative z-20">
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-5 sm:px-6 sm:py-6">
@@ -16,19 +57,20 @@ export function SiteHeader() {
             {siteName}
           </span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm text-mist">
-          <Link
-            href="/"
-            className="cursor-pointer rounded-md px-3 py-2 transition-colors duration-200 hover:text-ink"
-          >
-            文章
-          </Link>
-          <Link
-            href="/admin/login"
-            className="cursor-pointer rounded-md px-3 py-2 transition-colors duration-200 hover:text-ink"
-          >
-            管理
-          </Link>
+        <nav className="flex flex-wrap items-center justify-end gap-x-0.5 gap-y-1 text-sm" aria-label="站点导航">
+          {navItems.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`nav-link${active ? " is-active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
       <div className="mx-auto h-px w-full max-w-3xl bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
@@ -36,14 +78,14 @@ export function SiteHeader() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ siteName }: { siteName: string }) {
   return (
     <footer className="mt-auto">
       <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-5 py-8 text-sm text-mist sm:px-6">
         <span>© {new Date().getFullYear()} {siteName}</span>
         <span className="inline-flex items-center gap-2">
           <SealMark size={16} className="text-seal/70" />
-          <span className="tracking-[0.18em] text-gold">落印开卷</span>
+          <span className="tracking-[0.18em] text-gold">落印開卷</span>
         </span>
       </div>
     </footer>

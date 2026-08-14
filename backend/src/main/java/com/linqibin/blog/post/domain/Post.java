@@ -133,6 +133,13 @@ public record Post(
                 version + 1, viewCount);
     }
 
+    public void assertPermanentlyDeletable() {
+        // 彻底删除不可恢复，只允许对已经在回收站里的文章执行。
+        if (status != PostStatus.TRASHED) {
+            throw new InvalidPostStateTransitionException(status, "permanentlyDelete");
+        }
+    }
+
     // 文章被公开访问时递增阅读数。不递增 version，因为这不是作者编辑操作。
     public Post incrementViewCount() {
         return new Post(id, title, slug, markdownContent, status,

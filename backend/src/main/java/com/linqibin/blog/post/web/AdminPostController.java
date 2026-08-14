@@ -6,6 +6,7 @@ import java.util.UUID;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -94,5 +95,10 @@ public class AdminPostController {
         // 恢复后的目标状态由领域对象自己决定，控制器只返回结果。
         Post restoredPost = postService.restoreFromTrash(postId);
         return PostResponse.from(restoredPost);
+    }
+
+    @DeleteMapping("/{postId}")
+    public void permanentlyDelete(@PathVariable UUID postId) {
+        postService.permanentlyDelete(postId);
     }
 }

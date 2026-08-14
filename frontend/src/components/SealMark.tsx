@@ -36,12 +36,12 @@ export function SealMark({
       />
       <text
         x="32"
-        y="42.5"
+        y="26"
         textAnchor="middle"
+        dominantBaseline="central"
         fill="currentColor"
-        fontSize="28"
-        fontWeight="700"
-        fontFamily="var(--font-noto-serif), 'Noto Serif SC', serif"
+        fontSize="38"
+        fontFamily="var(--font-zhuan), serif"
         style={{ userSelect: "none" }}
       >
         林

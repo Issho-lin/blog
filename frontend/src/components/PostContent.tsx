@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { applyMermaidConfig } from "@/lib/mermaid";
 
 /**
  * 渲染文章 HTML，并将 ```mermaid 代码块画成图。
@@ -21,12 +22,7 @@ export function PostContent({ html }: { html: string }) {
       const mermaid = (await import("mermaid")).default;
       if (cancelled) return;
 
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "loose",
-        theme: "neutral",
-        fontFamily: "inherit",
-      });
+      applyMermaidConfig(mermaid);
 
       const nodes: HTMLElement[] = [];
       codes.forEach((code) => {

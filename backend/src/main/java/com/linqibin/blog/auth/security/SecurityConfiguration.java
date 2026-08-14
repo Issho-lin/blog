@@ -39,6 +39,7 @@ public class SecurityConfiguration {
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
             )
+            .securityContext(securityContext -> securityContext.requireExplicitSave(false))
             .authorizeHttpRequests(auth -> auth
                 // 公开接口：健康检查、公开文章、认证接口
                 .requestMatchers("/api/health", "/api/health/**").permitAll()

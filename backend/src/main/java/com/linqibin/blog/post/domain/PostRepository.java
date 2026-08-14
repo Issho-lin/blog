@@ -46,4 +46,7 @@ public interface PostRepository {
 
     // 统计关键词搜索匹配的已发布文章总数。
     long countSearchPublishedPosts(String keyword);
+
+    // 按主键物理删除文章，仅用于回收站彻底删除。
+    void deleteById(UUID id);
 }

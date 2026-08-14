@@ -24,6 +24,7 @@ import com.linqibin.blog.post.util.ReadingTimeEstimator;
 import com.linqibin.blog.post.util.SummaryGenerator;
 import com.linqibin.blog.taxonomy.application.CategoryService;
 import com.linqibin.blog.taxonomy.application.TagService;
+import com.linqibin.blog.taxonomy.domain.Category;
 import com.linqibin.blog.taxonomy.domain.Tag;
 
 // 公开文章接口：负责首页列表、文章详情、搜索和归档所需的只读查询，供前台页面和 SSR 使用。
@@ -122,9 +123,8 @@ public class PublicPostController {
         // 递增阅读数。简单可靠的统计方式：每次访问详情都 +1。
         postService.incrementViewCount(post.id());
 
-        // 填充分类名称和标签名称，供前端直接显示。
-        String categoryName = resolveCategoryName(post.categoryId());
-        List<String> tagNames = resolveTagNames(post.tagIds());
+        Category category = resolveCategory(post.categoryId());
+        List<Tag> tags = resolveTags(post.tagIds());
 
         return new PublicPostDetailResponse(
                 post.id(),
@@ -138,8 +138,10 @@ public class PublicPostController {
                 post.viewCount() + 1,
                 post.publishedAt(),
                 post.updatedAt(),
-                categoryName,
-                tagNames,
+                category == null ? null : category.name(),
+                category == null ? null : category.slug(),
+                tags.stream().map(Tag::name).toList(),
+                tags.stream().map(Tag::slug).toList(),
                 // SEO 字段：前端用这些值生成 meta 标签。
                 post.title(),
                 summary,
@@ -178,8 +180,8 @@ public class PublicPostController {
         String summary = SummaryGenerator.generate(post.markdownContent());
         String plainText = SummaryGenerator.stripMarkdown(post.markdownContent());
         int readingTime = ReadingTimeEstimator.estimate(plainText);
-        String categoryName = resolveCategoryName(post.categoryId());
-        List<String> tagNames = resolveTagNames(post.tagIds());
+        Category category = resolveCategory(post.categoryId());
+        List<Tag> tags = resolveTags(post.tagIds());
         return new PublicPostSummary(
                 post.id(),
                 post.title(),
@@ -188,28 +190,25 @@ public class PublicPostController {
                 post.publishedAt(),
                 readingTime,
                 post.viewCount(),
-                categoryName,
-                tagNames
+                category == null ? null : category.name(),
+                category == null ? null : category.slug(),
+                tags.stream().map(Tag::name).toList(),
+                tags.stream().map(Tag::slug).toList()
         );
     }
 
-    // 根据分类 ID 查询分类名称，找不到或为空时返回 null。
-    private String resolveCategoryName(UUID categoryId) {
+    private Category resolveCategory(UUID categoryId) {
         if (categoryId == null) {
             return null;
         }
-        return categoryService.getCategory(categoryId).name();
+        return categoryService.getCategory(categoryId);
     }
 
-    // 根据标签 ID 列表查询标签名称列表。
-    private List<String> resolveTagNames(List<UUID> tagIds) {
+    private List<Tag> resolveTags(List<UUID> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
             return List.of();
         }
-        return tagIds.stream()
-                .map(tagService::getTag)
-                .map(Tag::name)
-                .toList();
+        return tagIds.stream().map(tagService::getTag).toList();
     }
 
     // 根据发布时间生成年月分组键，格式为 "yyyy-MM"。

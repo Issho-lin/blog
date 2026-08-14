@@ -113,4 +113,9 @@ public class PostRepositoryAdapter implements PostRepository {
     public long countSearchPublishedPosts(String keyword) {
         return springDataPostRepository.countSearchPublished(PostStatus.PUBLISHED, keyword);
     }
+
+    @Override
+    public void deleteById(UUID id) {
+        springDataPostRepository.deleteById(id);
+    }
 }

@@ -40,14 +40,20 @@ export async function apiRequest<T>(
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
   const headers = new Headers(options.headers);
-  if (options.body !== undefined && !headers.has("Content-Type")) {
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (options.body !== undefined && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(url, {
     method: options.method ?? "GET",
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    body:
+      options.body === undefined
+        ? undefined
+        : isFormData
+          ? (options.body as FormData)
+          : JSON.stringify(options.body),
     cache: options.cache ?? "no-store",
     credentials: options.credentials ?? "include",
   });
@@ -71,4 +77,61 @@ export async function apiRequest<T>(
   }
 
   return payload.data;
+}
+
+function resolveUrl(path: string) {
+  const baseUrl = resolveBaseUrl();
+  return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function filenameFromDisposition(header: string | null, fallback: string) {
+  if (!header) return fallback;
+  const utf8 = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8?.[1]) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch {
+      return utf8[1];
+    }
+  }
+  const ascii = header.match(/filename="([^"]+)"/i) ?? header.match(/filename=([^;]+)/i);
+  return ascii?.[1]?.trim() || fallback;
+}
+
+/** 下载后端原始文件（如 Markdown 导出），不走统一 JSON 包装解析。 */
+export async function downloadFile(path: string, fallbackName: string) {
+  const response = await fetch(resolveUrl(path), {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const rawText = await response.text();
+    try {
+      const payload = JSON.parse(rawText) as ApiResponse<unknown>;
+      throw new ApiError(
+        payload.code ?? "HTTP_ERROR",
+        payload.message ?? `下载失败 (${response.status})`,
+        response.status
+      );
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError("HTTP_ERROR", `下载失败 (${response.status})`, response.status);
+    }
+  }
+
+  const blob = await response.blob();
+  const filename = filenameFromDisposition(
+    response.headers.get("Content-Disposition"),
+    fallbackName
+  );
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
 }

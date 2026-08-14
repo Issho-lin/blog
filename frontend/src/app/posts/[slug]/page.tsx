@@ -3,8 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { PostContent } from "@/components/PostContent";
+import { PrintArticleButton } from "@/components/PrintArticleButton";
+import { TaxonomyRow } from "@/components/TaxonomyMarks";
 import { ApiError } from "@/lib/api/client";
 import { getPublishedPost } from "@/lib/api/posts";
+import { loadPublicSiteSettings } from "@/lib/site-settings";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -39,21 +42,32 @@ function formatDate(value: string | null) {
 
 export default async function PostDetailPage({ params }: PageProps) {
   const { slug } = await params;
+  const settings = await loadPublicSiteSettings();
 
   try {
     const post = await getPublishedPost(slug);
+    const hasToc = (post.tableOfContents?.length ?? 0) > 0;
 
     return (
       <div className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="mx-auto grid w-full max-w-5xl flex-1 gap-12 px-5 py-8 sm:px-6 lg:grid-cols-[minmax(0,42rem)_1fr] lg:justify-center">
-          <article className="soft-in min-w-0">
-            <Link
-              href="/"
-              className="cursor-pointer text-sm text-mist transition-colors duration-200 hover:text-seal"
-            >
-              ← 返回文章列表
-            </Link>
+        <SiteHeader siteName={settings.siteName} />
+        <main
+          className={
+            hasToc
+              ? "mx-auto grid w-full max-w-5xl flex-1 gap-12 px-5 py-8 sm:px-6 lg:grid-cols-[minmax(0,42rem)_1fr] lg:justify-center"
+              : "mx-auto w-full max-w-3xl flex-1 px-5 py-8 sm:px-6"
+          }
+        >
+          <article id="article-print" className="soft-in min-w-0">
+            <div className="print-hide flex flex-wrap items-center justify-between gap-3">
+              <Link
+                href="/"
+                className="cursor-pointer text-sm text-mist transition-colors duration-200 hover:text-seal"
+              >
+                ← 返回文章列表
+              </Link>
+              <PrintArticleButton />
+            </div>
 
             <header className="mt-8 space-y-5 border-b border-line pb-10">
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-mist">
@@ -62,10 +76,10 @@ export default async function PostDetailPage({ params }: PageProps) {
                   ·
                 </span>
                 <span>{post.readingTimeMinutes} 分钟阅读</span>
-                <span className="text-gold/70" aria-hidden>
+                <span className="print-hide text-gold/70" aria-hidden>
                   ·
                 </span>
-                <span>{post.viewCount} 次浏览</span>
+                <span className="print-hide">{post.viewCount} 次浏览</span>
               </div>
               <h1 className="font-serif text-[clamp(1.9rem,4.5vw,2.75rem)] leading-snug tracking-wide text-ink">
                 {post.title}
@@ -74,20 +88,18 @@ export default async function PostDetailPage({ params }: PageProps) {
               {post.summary ? (
                 <p className="text-lg leading-8 text-mist line-clamp-3">{post.summary}</p>
               ) : null}
-              {(post.categoryName || post.tagNames.length > 0) && (
-                <div className="flex flex-wrap gap-2 text-sm text-mist">
-                  {post.categoryName ? (
-                    <span className="rounded-full bg-seal-soft px-3 py-1 text-seal">
-                      {post.categoryName}
-                    </span>
-                  ) : null}
-                  {post.tagNames.map((tag) => (
-                    <span key={tag} className="rounded-full border border-line px-3 py-1">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+              <TaxonomyRow
+                categoryName={post.categoryName}
+                categoryHref={
+                  post.categorySlug ? `/categories/${post.categorySlug}` : null
+                }
+                tags={post.tagNames.map((name, index) => ({
+                  name,
+                  href: post.tagSlugs?.[index]
+                    ? `/tags/${post.tagSlugs[index]}`
+                    : null,
+                }))}
+              />
             </header>
 
             <PostContent html={post.html} />
@@ -116,7 +128,7 @@ export default async function PostDetailPage({ params }: PageProps) {
             </aside>
           ) : null}
         </main>
-        <SiteFooter />
+        <SiteFooter siteName={settings.siteName} />
       </div>
     );
   } catch (error) {

@@ -14,6 +14,8 @@ public record PublicPostSummary(
         int readingTimeMinutes,
         long viewCount,
         String categoryName,
-        List<String> tagNames
+        String categorySlug,
+        List<String> tagNames,
+        List<String> tagSlugs
 ) {
 }

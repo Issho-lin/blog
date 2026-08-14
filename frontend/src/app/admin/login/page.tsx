@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { AdminButton } from "@/components/AdminButton";
 import { SealMark } from "@/components/SealMark";
 import { ApiError } from "@/lib/api/client";
 import { login } from "@/lib/api/posts";
@@ -68,13 +69,14 @@ export default function AdminLoginPage() {
             <p className="rounded-xl bg-seal-soft px-3 py-2 text-sm text-warn">{error}</p>
           ) : null}
 
-          <button
+          <AdminButton
             type="submit"
+            variant="primary"
             disabled={submitting}
-            className="flex min-h-11 w-full cursor-pointer items-center justify-center rounded-full bg-ink px-4 text-sm font-medium text-paper transition-colors duration-200 hover:bg-seal disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full"
           >
             {submitting ? "登录中…" : "登录"}
-          </button>
+          </AdminButton>
         </form>
 
         <p className="mt-8 text-center text-sm text-mist">

@@ -21,6 +21,11 @@ public class InMemoryPostRepository implements PostRepository {
     }
 
     @Override
+    public void deleteById(UUID id) {
+        posts.remove(id);
+    }
+
+    @Override
     public Post save(Post post) {
         // 直接用文章 id 覆盖保存，既支持创建也支持更新。
         posts.put(post.id(), post);

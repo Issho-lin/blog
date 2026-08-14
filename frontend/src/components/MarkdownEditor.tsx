@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Vditor from "vditor";
 import "vditor/dist/index.css";
+import { installMermaidConfigPatch } from "@/lib/mermaid";
 
 type MarkdownEditorProps = {
   /** 仅在挂载 / 强制重置时写入编辑器 */
@@ -101,6 +102,7 @@ export function MarkdownEditor({
     const host = hostRef.current;
     // 避免 React Strict Mode 重复挂载时残留 DOM
     host.innerHTML = "";
+    installMermaidConfigPatch();
 
     const editor = new Vditor(host, {
       // 本地静态资源，含 mermaid / plantuml 等绘图脚本

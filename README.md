@@ -9,6 +9,7 @@ blog
 ├── backend                     Spring Boot 后端工程（含 Dockerfile）
 ├── frontend                    Next.js 公开站 + 管理端
 ├── docker-compose.yml          PostgreSQL / Redis / 后端应用
+├── package.json                根目录编排：一键启动前后端
 ├── .env.example                环境变量示例
 ├── 产品需求文档-个人博客.md
 ├── 架构设计与技术选型-个人博客.md
@@ -33,18 +34,35 @@ blog
 - 多阶段 Dockerfile，以及 Compose 一键启动后端 + 数据库
 - Next.js 前端：公开首页、文章详情、管理登录与文章列表联调
 
-## 一键启动（推荐）
+## 一键启动（日常开发）
 
-复制环境变量模板：
+仓库是**混合技术栈的单仓**：前端（Next.js / pnpm）和后端（Spring Boot / Maven）在同一个 Git 仓库里，但不是纯前端那种 pnpm workspace。根目录 `package.json` 只负责把几件事串起来。
+
+第一次：
 
 ```bash
 cp .env.example .env
+pnpm install
+pnpm --dir frontend install
 ```
 
-**日常开发**（只起数据库和 Redis，后端用 IDEA 运行）：
+之后在仓库根目录：
 
 ```bash
-docker compose up -d
+pnpm dev
+```
+
+会依次：启动 PostgreSQL / Redis → 同时跑后端（8080）和前端（3000）。在该终端按 `Ctrl+C` 会停掉前后端进程。数据库容器仍会在后台运行，需要关掉时执行：
+
+```bash
+pnpm stop
+```
+
+只起其中一端：
+
+```bash
+pnpm dev:backend
+pnpm dev:frontend
 ```
 
 **整套容器启动**（含后端镜像构建）：
@@ -74,8 +92,8 @@ REDIS_IMAGE=docker.m.daocloud.io/library/redis:7-alpine
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 打开 `http://localhost:3000`。前端会把 `/api` 代理到 `http://localhost:8080`。
@@ -179,6 +197,4 @@ cat backup.sql | docker compose exec -T postgres psql -U blog blog
 
 ## 下一步建议
 
-1. 补齐前端编辑器、自动保存、归档/分类/搜索
-2. 补齐生产 HTTPS、域名与更完整备份演练
-3. 按需继续重构重复业务代码
+待办清单见 [docs/待办功能.md](docs/待办功能.md)。当前优先：站点设置与关于页。

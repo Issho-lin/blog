@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.linqibin.blog.common.request.RequestIdUtils;
 import com.linqibin.blog.post.infrastructure.InMemoryPostRepository;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -361,6 +362,36 @@ class PostControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"))
                 .andExpect(jsonPath("$.message").value("正文不能为空"))
                 .andExpect(jsonPath("$.requestId").value("publish-invalid-request-id"));
+    }
+
+    @Test
+    void permanentlyDeleteEndpointRemovesTrashedPost() throws Exception {
+        UUID postId = createDraft("Delete Me", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/trash"));
+
+        mockMvc.perform(delete("/api/admin/posts/" + postId)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "delete-post-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "delete-post-request-id"))
+                .andExpect(jsonPath("$.code").value("OK"));
+
+        mockMvc.perform(get("/api/admin/posts/" + postId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void permanentlyDeleteEndpointReturnsConflictWhenPostIsNotInTrash() throws Exception {
+        UUID postId = createDraft("Keep Draft", "# content");
+
+        mockMvc.perform(delete("/api/admin/posts/" + postId)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "delete-invalid-request-id"))
+                .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "delete-invalid-request-id"))
+                .andExpect(jsonPath("$.code").value("INVALID_POST_STATE_TRANSITION"))
+                .andExpect(jsonPath("$.message").value("文章状态 DRAFT 不允许执行操作: permanentlyDelete"))
+                .andExpect(jsonPath("$.requestId").value("delete-invalid-request-id"));
     }
 
     @Test

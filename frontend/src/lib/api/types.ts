@@ -22,7 +22,9 @@ export type PublicPostSummary = {
   readingTimeMinutes: number;
   viewCount: number;
   categoryName: string | null;
+  categorySlug: string | null;
   tagNames: string[];
+  tagSlugs: string[];
 };
 
 export type TocItem = {
@@ -44,7 +46,9 @@ export type PublicPostDetail = {
   publishedAt: string | null;
   updatedAt: string | null;
   categoryName: string | null;
+  categorySlug: string | null;
   tagNames: string[];
+  tagSlugs: string[];
   seoTitle: string | null;
   seoDescription: string | null;
   canonicalUrl: string | null;
@@ -94,6 +98,34 @@ export type MarkdownPreview = {
   tableOfContents: TocItem[];
 };
 
+export type SiteSettings = {
+  siteName: string;
+  siteSubtitle: string;
+  siteDescription: string;
+  authorName: string;
+  authorAvatarUrl: string;
+  aboutMarkdown: string;
+  aboutHtml: string;
+  postsPerPage: number;
+  timezone: string;
+  defaultLanguage: string;
+  faviconUrl: string;
+  defaultShareImageUrl: string;
+  updatedAt: string | null;
+};
+
+export type ArchiveItem = {
+  title: string;
+  slug: string;
+  publishedAt: string | null;
+};
+
+export type ArchiveGroup = {
+  year: number;
+  month: number;
+  items: ArchiveItem[];
+};
+
 export type UpdatePostInput = {
   title: string;
   markdownContent: string;
@@ -101,4 +133,11 @@ export type UpdatePostInput = {
   categoryId?: string | null;
   tagIds?: string[] | null;
   expectedVersion?: number | null;
+};
+
+export type ImportPostResult = {
+  id: string;
+  title: string;
+  slug: string;
+  status: string;
 };

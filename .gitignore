@@ -4,6 +4,8 @@ backend/uploads/
 uploads/
 .env
 *.log
+node_modules/
+.pnpm-store/
 
 # IDE
 .idea/

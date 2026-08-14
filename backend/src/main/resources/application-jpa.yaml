@@ -15,3 +15,5 @@ blog:
     repository-type: jpa
   taxonomy:
     repository-type: jpa
+  site:
+    repository-type: jpa

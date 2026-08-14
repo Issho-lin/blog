@@ -1,0 +1,14 @@
+{
+  "name": "blog",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm run dev:deps && concurrently -k -n api,web -c green,cyan \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
+    "dev:deps": "docker compose up -d postgres redis",
+    "dev:backend": "cd backend && SPRING_PROFILES_ACTIVE=jpa ./mvnw spring-boot:run",
+    "dev:frontend": "pnpm --dir frontend dev",
+    "stop": "docker compose stop postgres redis"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

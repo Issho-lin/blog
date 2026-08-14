@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
+import { loadPublicSiteSettings } from "@/lib/site-settings";
 
-export default function NotFound() {
+export default async function NotFound() {
+  const settings = await loadPublicSiteSettings();
+
   return (
     <div className="flex min-h-full flex-col">
-      <SiteHeader />
+      <SiteHeader siteName={settings.siteName} />
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-20 sm:px-6">
         <p className="text-sm tracking-[0.35em] text-seal">404</p>
         <h1 className="mt-4 font-serif text-4xl tracking-wide text-ink sm:text-5xl">
@@ -21,7 +24,7 @@ export default function NotFound() {
           回到首页
         </Link>
       </main>
-      <SiteFooter />
+      <SiteFooter siteName={settings.siteName} />
     </div>
   );
 }

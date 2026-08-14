@@ -1,19 +1,18 @@
 import { SiteFooter, SiteHeader } from "@/components/SiteChrome";
 import { PostList } from "@/components/PostList";
 import { SealMark } from "@/components/SealMark";
-import { HomeEntrance } from "@/components/HomeEntrance";
 import { listPublishedPosts } from "@/lib/api/posts";
 import { ApiError } from "@/lib/api/client";
+import { loadPublicSiteSettings } from "@/lib/site-settings";
 import type { PublicPostSummary } from "@/lib/api/types";
 
-const siteName = process.env.NEXT_PUBLIC_SITE_NAME ?? "Linqibin Blog";
-
 export default async function HomePage() {
+  const settings = await loadPublicSiteSettings();
   let posts: PublicPostSummary[] = [];
   let loadError: string | null = null;
 
   try {
-    const page = await listPublishedPosts(1, 20);
+    const page = await listPublishedPosts(1, settings.postsPerPage);
     posts = page.items;
   } catch (error) {
     loadError =
@@ -23,24 +22,27 @@ export default async function HomePage() {
   }
 
   return (
-    <HomeEntrance siteName={siteName}>
-      <div className="flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-20 sm:px-6">
+    <div className="flex min-h-full flex-col">
+      <SiteHeader siteName={settings.siteName} />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-20 sm:px-6">
           <section className="soft-in relative overflow-hidden border-b border-line pb-14 pt-10 sm:pb-16 sm:pt-14">
             <SealMark
               size={140}
               className="pointer-events-none absolute -right-3 top-2 rotate-12 text-seal/[0.09] sm:right-0 sm:top-6 sm:h-44 sm:w-44"
             />
-            <p className="mb-5 text-xs tracking-[0.45em] text-seal">书斋 · 技术手稿</p>
+            {settings.siteSubtitle ? (
+              <p className="mb-5 text-xs tracking-[0.45em] text-seal">{settings.siteSubtitle}</p>
+            ) : null}
             <div className="relative">
               <h1 className="max-w-[11em] font-serif text-[clamp(2.5rem,7.5vw,4rem)] leading-[1.12] tracking-[0.06em] text-ink">
-                {siteName}
+                {settings.siteName}
               </h1>
               <span className="gold-rule gold-rule-draw mt-6" aria-hidden />
-              <p className="mt-6 max-w-md text-lg leading-8 text-mist">
-                记录技术学习与工程实践。写给自己，也留给路过的人。
-              </p>
+              {settings.siteDescription ? (
+                <p className="mt-6 max-w-md text-lg leading-8 text-mist">
+                  {settings.siteDescription}
+                </p>
+              ) : null}
             </div>
           </section>
 
@@ -58,8 +60,7 @@ export default async function HomePage() {
             )}
           </section>
         </main>
-        <SiteFooter />
-      </div>
-    </HomeEntrance>
+        <SiteFooter siteName={settings.siteName} />
+    </div>
   );
 }

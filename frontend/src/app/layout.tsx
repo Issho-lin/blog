@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import localFont from "next/font/local";
 import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
+import { SiteEntrance } from "@/components/SiteEntrance";
 import "./globals.css";
 
 const notoSerif = Noto_Serif_SC({
@@ -13,6 +16,12 @@ const notoSans = Noto_Sans_SC({
   variable: "--font-noto-sans",
   weight: ["400", "500", "700"],
   subsets: ["latin"],
+  display: "swap",
+});
+
+const zhuanTi = localFont({
+  src: "../fonts/YiShanBeiZhuanTi.ttf",
+  variable: "--font-zhuan",
   display: "swap",
 });
 
@@ -32,8 +41,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={`${notoSerif.variable} ${notoSans.variable} h-full`}>
-      <body className="min-h-full antialiased">{children}</body>
+    <html
+      lang="zh-CN"
+      className={`${notoSerif.variable} ${notoSans.variable} ${zhuanTi.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-full antialiased">
+        <Script id="splash-on-reload" strategy="beforeInteractive">
+          {`(function(){try{var n=performance.getEntriesByType("navigation")[0];if(n&&n.type==="reload")document.documentElement.dataset.splash="1";}catch(e){}})();`}
+        </Script>
+        <SiteEntrance>{children}</SiteEntrance>
+      </body>
     </html>
   );
 }

@@ -195,6 +195,12 @@ public class PostService {
         return postRepository.save(restoredPost);
     }
 
+    public void permanentlyDelete(UUID postId) {
+        Post post = getPost(postId);
+        post.assertPermanentlyDeletable();
+        postRepository.deleteById(postId);
+    }
+
     private String resolveSlugForCreate(String title, String requestedSlug) {
         // 手动传 slug 时直接校验并使用；未传时根据标题自动生成并补唯一后缀。
         if (requestedSlug != null && !requestedSlug.isBlank()) {

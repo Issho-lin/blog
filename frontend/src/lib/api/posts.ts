@@ -1,20 +1,70 @@
-import { apiRequest } from "./client";
+import { apiRequest, downloadFile } from "./client";
 import type {
   AdminPost,
+  ArchiveGroup,
   AuthUser,
   Category,
+  ImportPostResult,
   MarkdownPreview,
   PageResponse,
   PublicPostDetail,
   PublicPostSummary,
+  SiteSettings,
   Tag,
   UpdatePostInput,
 } from "./types";
 
-export function listPublishedPosts(page = 1, pageSize = 10) {
+export function listPublishedPosts(
+  page = 1,
+  pageSize = 10,
+  filters?: { categoryId?: string; tagId?: string }
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (filters?.categoryId) {
+    params.set("categoryId", filters.categoryId);
+  }
+  if (filters?.tagId) {
+    params.set("tagId", filters.tagId);
+  }
   return apiRequest<PageResponse<PublicPostSummary>>(
-    `/api/public/posts?page=${page}&pageSize=${pageSize}`
+    `/api/public/posts?${params.toString()}`
   );
+}
+
+export function searchPublishedPosts(keyword: string, page = 1, pageSize = 10) {
+  const params = new URLSearchParams({
+    q: keyword,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return apiRequest<PageResponse<PublicPostSummary>>(
+    `/api/public/posts/search?${params.toString()}`
+  );
+}
+
+export function getArchives() {
+  return apiRequest<ArchiveGroup[]>("/api/public/posts/archives");
+}
+
+export function listPublicCategories() {
+  return apiRequest<Category[]>("/api/public/categories");
+}
+
+export function getPublicCategory(slug: string) {
+  return apiRequest<Category>(
+    `/api/public/categories/${encodeURIComponent(slug)}`
+  );
+}
+
+export function listPublicTags() {
+  return apiRequest<Tag[]>("/api/public/tags");
+}
+
+export function getPublicTag(slug: string) {
+  return apiRequest<Tag>(`/api/public/tags/${encodeURIComponent(slug)}`);
 }
 
 export function getPublishedPost(slug: string) {
@@ -85,6 +135,12 @@ export function restorePost(postId: string) {
   });
 }
 
+export function permanentlyDeletePost(postId: string) {
+  return apiRequest<void>(`/api/admin/posts/${postId}`, {
+    method: "DELETE",
+  });
+}
+
 export function previewMarkdown(markdown: string) {
   return apiRequest<MarkdownPreview>("/api/admin/markdown/preview", {
     method: "POST",
@@ -92,10 +148,88 @@ export function previewMarkdown(markdown: string) {
   });
 }
 
+export function importMarkdown(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return apiRequest<ImportPostResult>("/api/admin/imports", {
+    method: "POST",
+    body,
+  });
+}
+
+export function exportPost(postId: string, fallbackName = "post.md") {
+  return downloadFile(`/api/admin/posts/${postId}/export`, fallbackName);
+}
+
 export function listCategories() {
   return apiRequest<Category[]>("/api/admin/categories");
 }
 
+export function createCategory(name: string, slug?: string, description?: string) {
+  return apiRequest<Category>("/api/admin/categories", {
+    method: "POST",
+    body: { name, slug: slug || undefined, description: description || undefined },
+  });
+}
+
+export function updateCategory(id: string, name: string, description?: string) {
+  return apiRequest<Category>(`/api/admin/categories/${id}`, {
+    method: "PUT",
+    body: { name, description: description || undefined },
+  });
+}
+
+export function updateCategorySlug(id: string, slug: string) {
+  return apiRequest<Category>(`/api/admin/categories/${id}/slug`, {
+    method: "PUT",
+    body: slug,
+  });
+}
+
+export function deleteCategory(id: string) {
+  return apiRequest<void>(`/api/admin/categories/${id}`, { method: "DELETE" });
+}
+
 export function listTags() {
   return apiRequest<Tag[]>("/api/admin/tags");
+}
+
+export function createTag(name: string, slug?: string) {
+  return apiRequest<Tag>("/api/admin/tags", {
+    method: "POST",
+    body: { name, slug: slug || undefined },
+  });
+}
+
+export function updateTag(id: string, name: string) {
+  return apiRequest<Tag>(`/api/admin/tags/${id}`, {
+    method: "PUT",
+    body: { name },
+  });
+}
+
+export function updateTagSlug(id: string, slug: string) {
+  return apiRequest<Tag>(`/api/admin/tags/${id}/slug`, {
+    method: "PUT",
+    body: slug,
+  });
+}
+
+export function deleteTag(id: string) {
+  return apiRequest<void>(`/api/admin/tags/${id}`, { method: "DELETE" });
+}
+
+export function getPublicSiteSettings() {
+  return apiRequest<SiteSettings>("/api/public/site");
+}
+
+export function getAdminSiteSettings() {
+  return apiRequest<SiteSettings>("/api/admin/site");
+}
+
+export function updateSiteSettings(payload: Omit<SiteSettings, "aboutHtml" | "updatedAt">) {
+  return apiRequest<SiteSettings>("/api/admin/site", {
+    method: "PUT",
+    body: payload,
+  });
 }

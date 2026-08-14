@@ -21,7 +21,9 @@ public record PublicPostDetailResponse(
         Instant publishedAt,
         Instant updatedAt,
         String categoryName,
+        String categorySlug,
         List<String> tagNames,
+        List<String> tagSlugs,
         // SEO 字段：前端用于生成 title、description、canonical、Open Graph 标签。
         String seoTitle,
         String seoDescription,

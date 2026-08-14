@@ -1,11 +1,10 @@
 package com.linqibin.blog.auth.domain;
 
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-// 用户领域实体：只关心用户自身的数据和状态。
-// 密码以哈希值存储，明文密码绝不落库也不出现在响应中。
 public record User(
         UUID id,
         String email,
@@ -15,7 +14,7 @@ public record User(
         Instant createdAt,
         Instant updatedAt,
         Instant lastLoginAt
-) {
+) implements Serializable {
 
     public User {
         Objects.requireNonNull(id, "id 不能为空");

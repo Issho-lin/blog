@@ -20,8 +20,10 @@ import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.infrastructure.InMemoryPostRepository;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PostServiceTest {
 
@@ -234,6 +236,36 @@ class PostServiceTest {
         assertEquals(PostStatus.TRASHED, trashedPost.status());
         assertEquals(PostStatus.UNPUBLISHED, restoredPost.status());
         assertEquals(Instant.parse("2026-07-30T14:00:00Z"), restoredPost.updatedAt());
+    }
+
+    @Test
+    void permanentlyDeleteRemovesTrashedPostAndFreesSlug() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Delete Me", "# content", "delete-me", null, null);
+        PostService trashService = createServiceAt("2026-07-30T11:00:00Z");
+        trashService.moveToTrash(draftPost.id());
+        PostService deleteService = createServiceAt("2026-07-30T12:00:00Z");
+
+        deleteService.permanentlyDelete(draftPost.id());
+
+        assertTrue(postRepository.findById(draftPost.id()).isEmpty());
+        assertFalse(postRepository.existsBySlug("delete-me"));
+
+        Post recreated = deleteService.createDraft("Delete Me", "# content", "delete-me", null, null);
+        assertEquals("delete-me", recreated.slug());
+    }
+
+    @Test
+    void permanentlyDeleteDraftThrowsInvalidStateTransitionException() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Keep Draft", "# content", null, null, null);
+        PostService deleteService = createServiceAt("2026-07-30T11:00:00Z");
+
+        assertThrows(
+                InvalidPostStateTransitionException.class,
+                () -> deleteService.permanentlyDelete(draftPost.id())
+        );
+        assertTrue(postRepository.findById(draftPost.id()).isPresent());
     }
 
     @Test
