@@ -29,6 +29,8 @@ class FlywayMigrationIntegrationTest extends AbstractJpaIntegrationTest {
         assertThat(tableExists("tags")).isTrue();
         assertThat(columnExists("posts", "version")).isTrue();
         assertThat(columnExists("posts", "view_count")).isTrue();
+        assertThat(columnExists("posts", "excerpt")).isTrue();
+        assertThat(columnExists("posts", "cover_url")).isTrue();
     }
 
     private boolean tableExists(String tableName) {

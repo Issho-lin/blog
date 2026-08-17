@@ -2,10 +2,12 @@ package com.linqibin.blog.post.application;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.linqibin.blog.post.domain.Post;
@@ -18,6 +20,8 @@ import com.linqibin.blog.post.exception.PostNotFoundException;
 
 // 应用层负责把“查找/生成 slug/创建 Post/保存”这些步骤串成完整用例。
 public class PostService {
+
+    private static final int DASHBOARD_RECENT_LIMIT = 5;
 
     // 应用层依赖抽象仓库，具体落库方式由基础设施层决定。
     private final PostRepository postRepository;
@@ -44,16 +48,28 @@ public class PostService {
 
     public Post createDraft(String title, String markdownContent, String requestedSlug,
                             UUID categoryId, List<UUID> tagIds) {
+        return createDraft(title, markdownContent, requestedSlug, categoryId, tagIds, null, null);
+    }
+
+    public Post createDraft(String title, String markdownContent, String requestedSlug,
+                            UUID categoryId, List<UUID> tagIds, String excerpt, String coverUrl) {
         // 创建草稿的完整流程：定时间 -> 算 slug -> 生成实体 -> 持久化。
         Instant now = Instant.now(clock);
         String slug = resolveSlugForCreate(title, requestedSlug);
         Post post = Post.createDraft(idSupplier.get(), title, slug, defaultContent(markdownContent),
-                categoryId, tagIds, now);
+                categoryId, tagIds, now, excerpt, coverUrl);
         return postRepository.save(post);
     }
 
     public Post updatePost(UUID postId, String title, String markdownContent, String requestedSlug,
                             UUID categoryId, List<UUID> tagIds, Long expectedVersion) {
+        return updatePost(postId, title, markdownContent, requestedSlug, categoryId, tagIds,
+                expectedVersion, null, null);
+    }
+
+    public Post updatePost(UUID postId, String title, String markdownContent, String requestedSlug,
+                            UUID categoryId, List<UUID> tagIds, Long expectedVersion,
+                            String excerpt, String coverUrl) {
         // 编辑文章时先取到当前实体，再决定 slug 是否保留、重算或改成手动值。
         Post currentPost = getPost(postId);
         String resolvedSlug = resolveSlugForUpdate(currentPost, title, requestedSlug);
@@ -61,9 +77,13 @@ public class PostService {
         // 不传 categoryId/tagIds 时保留原值，方便只改标题或正文的场景。
         UUID resolvedCategoryId = categoryId != null ? categoryId : currentPost.categoryId();
         List<UUID> resolvedTagIds = tagIds != null ? tagIds : currentPost.tagIds();
+        // 不传摘要/封面时保留原值；传空字符串表示清除，公开端会回退到正文截取。
+        String resolvedExcerpt = excerpt != null ? excerpt : currentPost.excerpt();
+        String resolvedCoverUrl = coverUrl != null ? coverUrl : currentPost.coverUrl();
 
         // 自动保存场景下内容可能没有变化，此时直接返回当前文章，不递增版本号，避免虚假冲突。
-        if (contentUnchanged(currentPost, title, resolvedSlug, normalizedContent, resolvedCategoryId, resolvedTagIds)) {
+        if (contentUnchanged(currentPost, title, resolvedSlug, normalizedContent, resolvedCategoryId, resolvedTagIds,
+                resolvedExcerpt, resolvedCoverUrl)) {
             return currentPost;
         }
 
@@ -73,7 +93,7 @@ public class PostService {
         }
 
         Post updatedPost = currentPost.update(title, resolvedSlug, normalizedContent,
-                resolvedCategoryId, resolvedTagIds, Instant.now(clock));
+                resolvedCategoryId, resolvedTagIds, Instant.now(clock), resolvedExcerpt, resolvedCoverUrl);
         return postRepository.save(updatedPost);
     }
 
@@ -161,12 +181,16 @@ public class PostService {
     }
 
     public List<Post> searchByTitleKeyword(String keyword) {
-        // 先把搜索关键字规范化，空关键字时就等价于返回全部文章。
+        return searchAdminPosts(keyword, null, null);
+    }
+
+    public List<Post> searchAdminPosts(String keyword, UUID categoryId, UUID tagId) {
         String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
         return postRepository.findAll().stream()
                 .filter(post -> normalizedKeyword.isBlank()
                         || post.title().toLowerCase().contains(normalizedKeyword))
-                // 管理端列表通常优先看最近操作过的文章，所以按更新时间倒序。
+                .filter(post -> categoryId == null || categoryId.equals(post.categoryId()))
+                .filter(post -> tagId == null || post.tagIds().contains(tagId))
                 .sorted(Comparator.comparing((Post post) -> post.updatedAt()).reversed())
                 .toList();
     }
@@ -199,6 +223,76 @@ public class PostService {
         Post post = getPost(postId);
         post.assertPermanentlyDeletable();
         postRepository.deleteById(postId);
+    }
+
+    public AdminDashboard getDashboard() {
+        List<Post> all = postRepository.findAll();
+        long published = countByStatus(all, PostStatus.PUBLISHED);
+        long draft = countByStatus(all, PostStatus.DRAFT);
+        long unpublished = countByStatus(all, PostStatus.UNPUBLISHED);
+        long trashed = countByStatus(all, PostStatus.TRASHED);
+        long publishedViewCount = all.stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .mapToLong(Post::viewCount)
+                .sum();
+
+        List<Post> recentlyEdited = all.stream()
+                .filter(post -> post.status() != PostStatus.TRASHED)
+                .sorted(Comparator.comparing(Post::updatedAt).reversed())
+                .limit(DASHBOARD_RECENT_LIMIT)
+                .toList();
+        List<Post> recentlyPublished = all.stream()
+                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .sorted(Comparator.comparing(Post::publishedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(DASHBOARD_RECENT_LIMIT)
+                .toList();
+
+        return new AdminDashboard(
+                published + draft + unpublished,
+                published,
+                draft,
+                unpublished,
+                trashed,
+                publishedViewCount,
+                recentlyEdited,
+                recentlyPublished
+        );
+    }
+
+    private static long countByStatus(List<Post> posts, PostStatus status) {
+        return posts.stream().filter(post -> post.status() == status).count();
+    }
+
+    public BatchPostResult batchUnpublish(List<UUID> ids) {
+        return runBatch(ids, this::unpublish);
+    }
+
+    public BatchPostResult batchMoveToTrash(List<UUID> ids) {
+        return runBatch(ids, this::moveToTrashAllowingPublished);
+    }
+
+    // 批量移入回收站时，已发布文章先下线再进回收站，避免选中后无法操作。
+    private Post moveToTrashAllowingPublished(UUID postId) {
+        Post post = getPost(postId);
+        Instant now = Instant.now(clock);
+        if (post.status() == PostStatus.PUBLISHED) {
+            post = post.unpublish(now);
+        }
+        return postRepository.save(post.moveToTrash(now));
+    }
+
+    private BatchPostResult runBatch(List<UUID> ids, Function<UUID, Post> action) {
+        List<UUID> uniqueIds = ids.stream().distinct().toList();
+        List<Post> succeeded = new ArrayList<>();
+        List<BatchPostResult.Failure> failed = new ArrayList<>();
+        for (UUID id : uniqueIds) {
+            try {
+                succeeded.add(action.apply(id));
+            } catch (RuntimeException exception) {
+                failed.add(new BatchPostResult.Failure(id, exception.getMessage()));
+            }
+        }
+        return new BatchPostResult(List.copyOf(succeeded), List.copyOf(failed));
     }
 
     private String resolveSlugForCreate(String title, String requestedSlug) {
@@ -239,15 +333,20 @@ public class PostService {
                 .isPresent();
     }
 
-    // 判断标题、slug、正文、分类和标签是否与当前文章完全一致，用于自动保存的幂等检测。
+    // 判断标题、slug、正文、分类、标签、摘要和封面是否与当前文章完全一致，用于自动保存的幂等检测。
     private boolean contentUnchanged(Post currentPost, String title, String resolvedSlug,
-                                     String normalizedContent, UUID categoryId, List<UUID> tagIds) {
+                                     String normalizedContent, UUID categoryId, List<UUID> tagIds,
+                                     String excerpt, String coverUrl) {
         String trimmedTitle = title != null ? title.trim() : "";
+        String normalizedExcerpt = excerpt == null || excerpt.isBlank() ? null : excerpt.trim();
+        String normalizedCoverUrl = coverUrl == null || coverUrl.isBlank() ? null : coverUrl.trim();
         return trimmedTitle.equals(currentPost.title())
                 && resolvedSlug.equals(currentPost.slug())
                 && normalizedContent.equals(currentPost.markdownContent())
                 && Objects.equals(categoryId, currentPost.categoryId())
-                && Objects.equals(tagIds, currentPost.tagIds());
+                && Objects.equals(tagIds, currentPost.tagIds())
+                && Objects.equals(normalizedExcerpt, currentPost.excerpt())
+                && Objects.equals(normalizedCoverUrl, currentPost.coverUrl());
     }
 
     private String defaultContent(String markdownContent) {

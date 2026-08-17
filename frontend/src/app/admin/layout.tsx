@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       .then(() => {
         if (cancelled) return;
         if (onLoginPage) {
-          router.replace("/admin/posts");
+          router.replace("/admin");
           return;
         }
         setReady(true);

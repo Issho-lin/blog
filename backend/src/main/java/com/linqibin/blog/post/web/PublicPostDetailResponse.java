@@ -15,6 +15,7 @@ public record PublicPostDetailResponse(
         String html,
         String markdownContent,
         String summary,
+        String coverUrl,
         List<TableOfContentsItem> tableOfContents,
         int readingTimeMinutes,
         long viewCount,

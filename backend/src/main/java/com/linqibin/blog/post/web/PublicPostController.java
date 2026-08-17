@@ -16,8 +16,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.linqibin.blog.common.api.PageResponse;
-import com.linqibin.blog.markdown.MarkdownRenderResult;
-import com.linqibin.blog.markdown.MarkdownService;
 import com.linqibin.blog.post.application.PostService;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.util.ReadingTimeEstimator;
@@ -37,16 +35,17 @@ public class PublicPostController {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final PostService postService;
-    private final MarkdownService markdownService;
     private final CategoryService categoryService;
     private final TagService tagService;
+    private final PostDetailAssembler postDetailAssembler;
 
-    public PublicPostController(PostService postService, MarkdownService markdownService,
-                                CategoryService categoryService, TagService tagService) {
+    public PublicPostController(PostService postService,
+                                CategoryService categoryService, TagService tagService,
+                                PostDetailAssembler postDetailAssembler) {
         this.postService = postService;
-        this.markdownService = markdownService;
         this.categoryService = categoryService;
         this.tagService = tagService;
+        this.postDetailAssembler = postDetailAssembler;
     }
 
     // 公开文章列表：分页返回已发布文章，支持按分类和标签筛选，列表项不含正文。
@@ -111,42 +110,8 @@ public class PublicPostController {
     @GetMapping("/{slug}")
     public PublicPostDetailResponse getPostBySlug(@PathVariable String slug) {
         Post post = postService.getPublishedPostBySlug(slug);
-
-        // 渲染 Markdown 为安全 HTML 并提取目录。
-        MarkdownRenderResult renderResult = markdownService.renderWithTableOfContents(post.markdownContent());
-
-        // 生成摘要和估算阅读时长。
-        String plainText = SummaryGenerator.stripMarkdown(post.markdownContent());
-        String summary = SummaryGenerator.generate(post.markdownContent());
-        int readingTime = ReadingTimeEstimator.estimate(plainText);
-
-        // 递增阅读数。简单可靠的统计方式：每次访问详情都 +1。
         postService.incrementViewCount(post.id());
-
-        Category category = resolveCategory(post.categoryId());
-        List<Tag> tags = resolveTags(post.tagIds());
-
-        return new PublicPostDetailResponse(
-                post.id(),
-                post.title(),
-                post.slug(),
-                renderResult.html(),
-                post.markdownContent(),
-                summary,
-                renderResult.tableOfContents(),
-                readingTime,
-                post.viewCount() + 1,
-                post.publishedAt(),
-                post.updatedAt(),
-                category == null ? null : category.name(),
-                category == null ? null : category.slug(),
-                tags.stream().map(Tag::name).toList(),
-                tags.stream().map(Tag::slug).toList(),
-                // SEO 字段：前端用这些值生成 meta 标签。
-                post.title(),
-                summary,
-                "/posts/" + post.slug()
-        );
+        return postDetailAssembler.toPublicDetail(post, post.viewCount() + 1);
     }
 
     // 归档列表：按年月分组返回已发布文章的标题和 slug，供归档页使用。
@@ -177,7 +142,7 @@ public class PublicPostController {
 
     // 将领域对象转换为公开列表项，生成摘要、估算阅读时长，并填充分类和标签名称。
     private PublicPostSummary toSummary(Post post) {
-        String summary = SummaryGenerator.generate(post.markdownContent());
+        String summary = resolveSummary(post);
         String plainText = SummaryGenerator.stripMarkdown(post.markdownContent());
         int readingTime = ReadingTimeEstimator.estimate(plainText);
         Category category = resolveCategory(post.categoryId());
@@ -187,6 +152,7 @@ public class PublicPostController {
                 post.title(),
                 post.slug(),
                 summary,
+                post.coverUrl(),
                 post.publishedAt(),
                 readingTime,
                 post.viewCount(),
@@ -209,6 +175,14 @@ public class PublicPostController {
             return List.of();
         }
         return tagIds.stream().map(tagService::getTag).toList();
+    }
+
+    // 作者填写了摘要就用自定义摘要；未填写时从正文截取。
+    private static String resolveSummary(Post post) {
+        if (post.excerpt() != null && !post.excerpt().isBlank()) {
+            return post.excerpt();
+        }
+        return SummaryGenerator.generate(post.markdownContent());
     }
 
     // 根据发布时间生成年月分组键，格式为 "yyyy-MM"。

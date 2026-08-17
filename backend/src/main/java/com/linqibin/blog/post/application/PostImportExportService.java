@@ -115,7 +115,8 @@ public class PostImportExportService {
         }
 
         // 导入永远创建草稿，忽略 Front Matter 中的 status 字段。
-        return postService.createDraft(title, body, slug, categoryId, tagIds.isEmpty() ? null : tagIds);
+        return postService.createDraft(title, body, slug, categoryId, tagIds.isEmpty() ? null : tagIds,
+                fm.description(), fm.cover());
     }
 
     // 导出文章为带 Front Matter 的 Markdown 字符串。
@@ -152,8 +153,8 @@ public class PostImportExportService {
         String markdown = frontMatterExporter.export(
                 post.title(),
                 post.slug(),
-                null, // excerpt: 暂不存储摘要字段，导出时为空
-                null, // cover: 暂不存储封面字段
+                post.excerpt(),
+                post.coverUrl(),
                 categoryName,
                 tagNames,
                 post.status().name(),

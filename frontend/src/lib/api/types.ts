@@ -18,6 +18,7 @@ export type PublicPostSummary = {
   title: string;
   slug: string;
   summary: string | null;
+  coverUrl: string | null;
   publishedAt: string | null;
   readingTimeMinutes: number;
   viewCount: number;
@@ -33,6 +34,10 @@ export type TocItem = {
   anchor: string;
 };
 
+export type AdminPostPreview = PublicPostDetail & {
+  status: AdminPost["status"];
+};
+
 export type PublicPostDetail = {
   id: string;
   title: string;
@@ -40,6 +45,7 @@ export type PublicPostDetail = {
   html: string;
   markdownContent: string;
   summary: string | null;
+  coverUrl: string | null;
   tableOfContents: TocItem[];
   readingTimeMinutes: number;
   viewCount: number;
@@ -66,6 +72,8 @@ export type AdminPost = {
   id: string;
   title: string;
   slug: string;
+  excerpt: string | null;
+  coverUrl: string | null;
   markdownContent: string;
   status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "TRASHED";
   categoryId: string | null;
@@ -133,6 +141,36 @@ export type UpdatePostInput = {
   categoryId?: string | null;
   tagIds?: string[] | null;
   expectedVersion?: number | null;
+  excerpt?: string | null;
+  coverUrl?: string | null;
+};
+
+export type BatchPostActionResult = {
+  succeeded: AdminPost[];
+  failed: { id: string; message: string }[];
+};
+
+export type AdminDashboardPost = {
+  id: string;
+  title: string;
+  slug: string;
+  status: AdminPost["status"];
+  updatedAt: string;
+  publishedAt: string | null;
+  viewCount: number;
+};
+
+export type AdminDashboard = {
+  counts: {
+    total: number;
+    published: number;
+    draft: number;
+    unpublished: number;
+    trashed: number;
+    publishedViewCount: number;
+  };
+  recentlyEdited: AdminDashboardPost[];
+  recentlyPublished: AdminDashboardPost[];
 };
 
 export type ImportPostResult = {

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 // 创建草稿请求对象：承接管理端传入的标题、正文、可选 slug、分类和标签。
 public record CreatePostRequest(
@@ -17,6 +18,10 @@ public record CreatePostRequest(
         // 分类 ID 可选，不传时文章为未分类。
         UUID categoryId,
         // 标签 ID 列表可选，不传时文章无标签。
-        List<UUID> tagIds
+        List<UUID> tagIds,
+        @Size(max = 500, message = "摘要不能超过 500 个字符")
+        String excerpt,
+        @Size(max = 500, message = "封面地址不能超过 500 个字符")
+        String coverUrl
 ) {
 }

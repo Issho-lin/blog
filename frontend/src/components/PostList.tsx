@@ -43,6 +43,19 @@ export function PostList({
             style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
           >
             <article>
+              {post.coverUrl ? (
+                <Link
+                  href={`/posts/${post.slug}`}
+                  className="mb-4 block overflow-hidden rounded-xl border border-line bg-paper"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.coverUrl}
+                    alt=""
+                    className="h-44 w-full object-cover sm:h-52"
+                  />
+                </Link>
+              ) : null}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-mist">
                 <time>{formatDate(post.publishedAt)}</time>
                 <span className="text-gold/70" aria-hidden>

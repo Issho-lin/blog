@@ -26,16 +26,18 @@ public class AdminPostController {
 
     // 管理端控制器只依赖应用层，不直接碰仓库或领域细节。
     private final PostService postService;
+    private final PostDetailAssembler postDetailAssembler;
 
-    public AdminPostController(PostService postService) {
+    public AdminPostController(PostService postService, PostDetailAssembler postDetailAssembler) {
         this.postService = postService;
+        this.postDetailAssembler = postDetailAssembler;
     }
 
     @PostMapping("/drafts")
     public ResponseEntity<PostResponse> createDraft(@Valid @RequestBody CreatePostRequest request) {
         // Controller 只负责收参与出参转换，真正的创建流程放在 PostService 中。
         Post createdPost = postService.createDraft(request.title(), request.markdownContent(), request.slug(),
-                request.categoryId(), request.tagIds());
+                request.categoryId(), request.tagIds(), request.excerpt(), request.coverUrl());
         return ResponseEntity.status(HttpStatus.CREATED).body(PostResponse.from(createdPost));
     }
 
@@ -46,6 +48,12 @@ public class AdminPostController {
         return PostResponse.from(post);
     }
 
+    @GetMapping("/{postId}/preview")
+    public AdminPostPreviewResponse preview(@PathVariable UUID postId) {
+        // 用与公开页相同的渲染结果做预览，不改变状态、不增加阅读数。
+        return postDetailAssembler.toAdminPreview(postService.getPost(postId));
+    }
+
     @GetMapping("/{postId}/save-status")
     public SaveStatusResponse getSaveStatus(@PathVariable UUID postId) {
         // 轻量查询：只返回版本号、更新时间和状态，前端用于确认服务端最新版本。
@@ -54,18 +62,32 @@ public class AdminPostController {
     }
 
     @GetMapping
-    public List<PostResponse> listPosts(@RequestParam(required = false) String keyword) {
-        // 管理端列表支持按标题关键字过滤，不传关键字时返回全部文章。
-        return postService.searchByTitleKeyword(keyword).stream()
+    public List<PostResponse> listPosts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) UUID tagId
+    ) {
+        // 管理端列表支持按标题、分类和标签过滤，不传条件时返回全部文章。
+        return postService.searchAdminPosts(keyword, categoryId, tagId).stream()
                 .map(PostResponse::from)
                 .toList();
+    }
+
+    @PostMapping("/batch-unpublish")
+    public BatchPostActionResponse batchUnpublish(@Valid @RequestBody BatchPostIdsRequest request) {
+        return BatchPostActionResponse.from(postService.batchUnpublish(request.ids()));
+    }
+
+    @PostMapping("/batch-trash")
+    public BatchPostActionResponse batchMoveToTrash(@Valid @RequestBody BatchPostIdsRequest request) {
+        return BatchPostActionResponse.from(postService.batchMoveToTrash(request.ids()));
     }
 
     @PutMapping("/{postId}")
     public PostResponse updatePost(@PathVariable UUID postId, @Valid @RequestBody UpdatePostRequest request) {
         // 编辑接口允许修改文章内容；是否能改、改完状态是否保持不变，由应用层和领域层决定。
         Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug(),
-                request.categoryId(), request.tagIds(), request.expectedVersion());
+                request.categoryId(), request.tagIds(), request.expectedVersion(), request.excerpt(), request.coverUrl());
         return PostResponse.from(updatedPost);
     }
 

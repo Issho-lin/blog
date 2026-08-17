@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminButton } from "@/components/AdminButton";
 import { AdminChrome } from "@/components/AdminChrome";
+import { AdminInput, AdminTextarea } from "@/components/AdminField";
 import { ApiError } from "@/lib/api/client";
 import { getAdminSiteSettings, updateSiteSettings } from "@/lib/api/posts";
 import { fallbackSiteSettings } from "@/lib/site-settings";
@@ -82,9 +83,6 @@ export function AdminSiteSettings() {
     }
   }
 
-  const fieldClass =
-    "min-h-10 w-full rounded-md border border-line bg-white/70 px-3 text-sm text-ink outline-none focus:border-seal";
-
   return (
     <div className="mx-auto min-h-full w-full max-w-3xl px-5 py-10 sm:px-6">
       <AdminChrome title="站点设置" />
@@ -102,94 +100,84 @@ export function AdminSiteSettings() {
         <form className="grid gap-5" onSubmit={(event) => void onSubmit(event)}>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">站点名称</span>
-            <input
+            <AdminInput
               value={form.siteName}
               onChange={(event) => patch("siteName", event.target.value)}
-              className={fieldClass}
               required
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">副标题</span>
-            <input
+            <AdminInput
               value={form.siteSubtitle}
               onChange={(event) => patch("siteSubtitle", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">站点简介</span>
-            <textarea
+            <AdminTextarea
               value={form.siteDescription}
               onChange={(event) => patch("siteDescription", event.target.value)}
-              className={`${fieldClass} min-h-24 py-2`}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">作者名称</span>
-            <input
+            <AdminInput
               value={form.authorName}
               onChange={(event) => patch("authorName", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">作者头像 URL</span>
-            <input
+            <AdminInput
               value={form.authorAvatarUrl}
               onChange={(event) => patch("authorAvatarUrl", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">关于页（Markdown）</span>
-            <textarea
+            <AdminTextarea
               value={form.aboutMarkdown}
               onChange={(event) => patch("aboutMarkdown", event.target.value)}
-              className={`${fieldClass} min-h-40 py-2 font-mono text-[13px]`}
+              className="min-h-40 font-mono text-[13px]"
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">首页每页文章数</span>
-            <input
+            <AdminInput
               type="number"
               min={1}
               max={100}
               value={form.postsPerPage}
               onChange={(event) => patch("postsPerPage", Number(event.target.value))}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">时区</span>
-            <input
+            <AdminInput
               value={form.timezone}
               onChange={(event) => patch("timezone", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">默认语言</span>
-            <input
+            <AdminInput
               value={form.defaultLanguage}
               onChange={(event) => patch("defaultLanguage", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">Favicon URL</span>
-            <input
+            <AdminInput
               value={form.faviconUrl}
               onChange={(event) => patch("faviconUrl", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <label className="grid gap-1 text-sm">
             <span className="text-mist">默认分享图 URL</span>
-            <input
+            <AdminInput
               value={form.defaultShareImageUrl}
               onChange={(event) => patch("defaultShareImageUrl", event.target.value)}
-              className={fieldClass}
             />
           </label>
           <div>
@@ -202,3 +190,4 @@ export function AdminSiteSettings() {
     </div>
   );
 }
+

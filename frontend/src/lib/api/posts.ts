@@ -3,12 +3,15 @@ import type {
   AdminPost,
   ArchiveGroup,
   AuthUser,
+  AdminDashboard,
+  BatchPostActionResult,
   Category,
   ImportPostResult,
   MarkdownPreview,
   PageResponse,
   PublicPostDetail,
   PublicPostSummary,
+  AdminPostPreview,
   SiteSettings,
   Tag,
   UpdatePostInput,
@@ -88,13 +91,35 @@ export function getCurrentUser() {
   return apiRequest<AuthUser>("/api/auth/me");
 }
 
-export function listAdminPosts(keyword?: string) {
-  const query = keyword ? `?keyword=${encodeURIComponent(keyword)}` : "";
+export function getAdminDashboard() {
+  return apiRequest<AdminDashboard>("/api/admin/dashboard");
+}
+
+export function listAdminPosts(filters?: {
+  keyword?: string;
+  categoryId?: string;
+  tagId?: string;
+}) {
+  const params = new URLSearchParams();
+  if (filters?.keyword) {
+    params.set("keyword", filters.keyword);
+  }
+  if (filters?.categoryId) {
+    params.set("categoryId", filters.categoryId);
+  }
+  if (filters?.tagId) {
+    params.set("tagId", filters.tagId);
+  }
+  const query = params.toString() ? `?${params.toString()}` : "";
   return apiRequest<AdminPost[]>(`/api/admin/posts${query}`);
 }
 
 export function getAdminPost(postId: string) {
   return apiRequest<AdminPost>(`/api/admin/posts/${postId}`);
+}
+
+export function getAdminPostPreview(postId: string) {
+  return apiRequest<AdminPostPreview>(`/api/admin/posts/${postId}/preview`);
 }
 
 export function createDraft(title: string, markdownContent = "") {
@@ -111,6 +136,18 @@ export function updatePost(postId: string, input: UpdatePostInput) {
   });
 }
 
+export function uploadImage(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return apiRequest<{ url: string; originalFilename: string }>(
+    "/api/admin/media/images",
+    {
+      method: "POST",
+      body,
+    }
+  );
+}
+
 export function publishPost(postId: string) {
   return apiRequest<AdminPost>(`/api/admin/posts/${postId}/publish`, {
     method: "POST",
@@ -120,6 +157,20 @@ export function publishPost(postId: string) {
 export function unpublishPost(postId: string) {
   return apiRequest<AdminPost>(`/api/admin/posts/${postId}/unpublish`, {
     method: "POST",
+  });
+}
+
+export function batchUnpublishPosts(ids: string[]) {
+  return apiRequest<BatchPostActionResult>("/api/admin/posts/batch-unpublish", {
+    method: "POST",
+    body: { ids },
+  });
+}
+
+export function batchTrashPosts(ids: string[]) {
+  return apiRequest<BatchPostActionResult>("/api/admin/posts/batch-trash", {
+    method: "POST",
+    body: { ids },
   });
 }
 

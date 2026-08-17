@@ -1,11 +1,13 @@
 "use client";
 
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { AdminButton } from "@/components/AdminButton";
 
 type AdminConfirmDialogProps = {
   title: string;
   message: string;
   confirmLabel: string;
+  confirmVariant?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -14,30 +16,38 @@ export function AdminConfirmDialog({
   title,
   message,
   confirmLabel,
+  confirmVariant = "danger",
   onCancel,
   onConfirm,
 }: AdminConfirmDialogProps) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 px-5"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="admin-confirm-title"
+    <AlertDialog.Root
+      open
+      onOpenChange={(next) => {
+        if (!next) onCancel();
+      }}
     >
-      <div className="w-full max-w-md rounded-xl border border-line bg-paper px-5 py-5 shadow-lg">
-        <h2 id="admin-confirm-title" className="text-base font-medium text-ink">
-          {title}
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-mist">{message}</p>
-        <div className="mt-5 flex justify-end gap-2">
-          <AdminButton type="button" onClick={onCancel}>
-            取消
-          </AdminButton>
-          <AdminButton type="button" variant="danger" onClick={onConfirm}>
-            {confirmLabel}
-          </AdminButton>
-        </div>
-      </div>
-    </div>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="admin-dialog-overlay" />
+        <AlertDialog.Content className="admin-dialog-content">
+          <AlertDialog.Title className="admin-dialog-title">{title}</AlertDialog.Title>
+          <AlertDialog.Description className="admin-dialog-desc">
+            {message}
+          </AlertDialog.Description>
+          <div className="admin-dialog-actions">
+            <AlertDialog.Cancel asChild>
+              <AdminButton type="button">取消</AdminButton>
+            </AlertDialog.Cancel>
+            <AdminButton
+              type="button"
+              variant={confirmVariant}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </AdminButton>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }

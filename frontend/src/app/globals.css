@@ -120,6 +120,7 @@ select:focus-visible {
 }
 
 .admin-btn {
+  appearance: none;
   position: relative;
   display: inline-flex;
   min-height: 2.5rem;
@@ -129,6 +130,8 @@ select:focus-visible {
   padding: 0 1rem;
   border: 1px solid transparent;
   border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
   font-size: 0.8125rem;
   letter-spacing: 0.14em;
   transition:
@@ -187,6 +190,54 @@ select:focus-visible {
   background: var(--seal-soft);
 }
 
+.admin-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--seal) 16%, transparent);
+}
+
+.admin-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+
+.admin-dialog-content {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 51;
+  width: calc(100% - 2.5rem);
+  max-width: 28rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  padding: 1.25rem;
+  box-shadow: 0 20px 60px rgba(20, 24, 31, 0.12);
+}
+
+.admin-dialog-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.admin-dialog-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--mist);
+}
+
+.admin-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
 .admin-tab {
   display: inline-flex;
   cursor: pointer;
@@ -206,6 +257,176 @@ select:focus-visible {
 .admin-tab.is-active {
   color: var(--seal);
   border-bottom-color: var(--seal);
+}
+
+.admin-field {
+  appearance: none;
+  box-sizing: border-box;
+  min-height: 2.5rem;
+  width: 100%;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, white 70%, transparent);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.admin-field::placeholder {
+  color: color-mix(in srgb, var(--mist) 70%, transparent);
+}
+
+.admin-field:hover {
+  border-color: color-mix(in srgb, var(--gold) 55%, var(--line));
+}
+
+.admin-field:focus,
+.admin-field:focus-visible {
+  border-color: var(--seal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--seal) 12%, transparent);
+}
+
+.admin-field:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.admin-field[type="number"]::-webkit-outer-spin-button,
+.admin-field[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.admin-field[type="search"]::-webkit-search-decoration,
+.admin-field[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.admin-field-area {
+  min-height: 6rem;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+  resize: vertical;
+}
+
+.admin-select-trigger {
+  display: inline-flex;
+  width: auto;
+  min-width: 9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.admin-select-trigger.w-full {
+  width: 100%;
+}
+
+.admin-title-field {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-noto-serif), "Songti SC", serif;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  outline: none;
+}
+
+.admin-title-field::placeholder {
+  color: color-mix(in srgb, var(--mist) 50%, transparent);
+}
+
+.admin-select-trigger[data-placeholder] {
+  color: var(--mist);
+}
+
+.admin-select-icon {
+  display: inline-flex;
+  color: var(--gold);
+}
+
+.admin-select-content {
+  z-index: 50;
+  min-width: var(--radix-select-trigger-width);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(20, 24, 31, 0.1);
+}
+
+.admin-select-viewport {
+  padding: 0.35rem;
+}
+
+.admin-select-item {
+  display: flex;
+  cursor: pointer;
+  align-items: center;
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+  outline: none;
+}
+
+.admin-select-item[data-highlighted] {
+  background: var(--seal-soft);
+  color: var(--seal);
+}
+
+.admin-select-item[data-state="checked"] {
+  color: var(--seal);
+}
+
+.admin-check {
+  display: inline-flex;
+  height: 1.05rem;
+  width: 1.05rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--seal);
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.admin-check:hover {
+  border-color: var(--gold);
+}
+
+.admin-check[data-state="checked"],
+.admin-check[data-state="indeterminate"] {
+  border-color: var(--seal);
+  background: var(--seal-soft);
+}
+
+.admin-check-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-check-dash {
+  display: block;
+  height: 1.5px;
+  width: 8px;
+  border-radius: 1px;
+  background: currentColor;
 }
 
 .font-serif {
@@ -238,6 +459,15 @@ select:focus-visible {
 
 .seal-glow {
   filter: drop-shadow(0 6px 14px rgba(217, 45, 32, 0.28));
+}
+
+.search-field {
+  appearance: none;
+  font-family: inherit;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
 }
 
 .search-field::-webkit-search-decoration,

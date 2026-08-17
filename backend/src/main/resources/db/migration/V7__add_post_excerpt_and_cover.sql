@@ -1,0 +1,3 @@
+ALTER TABLE posts
+    ADD COLUMN excerpt VARCHAR(500),
+    ADD COLUMN cover_url VARCHAR(500);

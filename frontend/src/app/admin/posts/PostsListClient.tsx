@@ -4,11 +4,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AdminButton } from "@/components/AdminButton";
+import { AdminCheckbox } from "@/components/AdminCheckbox";
 import { AdminChrome } from "@/components/AdminChrome";
 import { AdminConfirmDialog } from "@/components/AdminConfirmDialog";
+import { AdminInput } from "@/components/AdminField";
+import { AdminSelect } from "@/components/AdminSelect";
 import { TaxonomyRow } from "@/components/TaxonomyMarks";
 import { ApiError } from "@/lib/api/client";
 import {
+  batchTrashPosts,
+  batchUnpublishPosts,
   createDraft,
   exportPost,
   importMarkdown,
@@ -46,20 +51,32 @@ export function AdminPostsList() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<AdminPost | null>(null);
+  const [trashConfirm, setTrashConfirm] = useState<AdminPost | null>(null);
+  const [bulkAction, setBulkAction] = useState<"unpublish" | "trash" | null>(null);
 
   async function loadPosts() {
     setLoading(true);
     setError(null);
     try {
       const [data, categoryList, tagList] = await Promise.all([
-        listAdminPosts(keyword.trim() || undefined),
+        listAdminPosts({
+          keyword: keyword.trim() || undefined,
+          categoryId: categoryFilter || undefined,
+          tagId: tagFilter || undefined,
+        }),
         listCategories().catch(() => [] as Category[]),
         listTags().catch(() => [] as Tag[]),
       ]);
       setPosts(data);
       setCategories(categoryList);
       setTags(tagList);
+      setSelectedIds((current) =>
+        current.filter((id) => data.some((post) => post.id === id))
+      );
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.replace("/admin/login");
@@ -73,7 +90,7 @@ export function AdminPostsList() {
 
   useEffect(() => {
     void loadPosts();
-  }, []);
+  }, [categoryFilter, tagFilter]);
 
   function patchPost(updated: AdminPost) {
     setPosts((current) =>
@@ -154,8 +171,11 @@ export function AdminPostsList() {
     }
   }
 
+  function requestTrash(post: AdminPost) {
+    setTrashConfirm(post);
+  }
+
   async function onTrash(post: AdminPost) {
-    if (!window.confirm(`把「${post.title}」移入回收站？`)) return;
     setActingId(post.id);
     try {
       patchPost(await trashPost(post.id));
@@ -193,8 +213,53 @@ export function AdminPostsList() {
     try {
       await permanentlyDeletePost(post.id);
       setPosts((current) => current.filter((item) => item.id !== post.id));
+      setSelectedIds((current) => current.filter((id) => id !== post.id));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "彻底删除失败");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  function toggleSelected(postId: string) {
+    setSelectedIds((current) =>
+      current.includes(postId)
+        ? current.filter((id) => id !== postId)
+        : [...current, postId]
+    );
+  }
+
+  async function runBulkUnpublish(ids: string[]) {
+    setActingId("bulk");
+    try {
+      const result = await batchUnpublishPosts(ids);
+      result.succeeded.forEach(patchPost);
+      setSelectedIds([]);
+      if (result.failed.length > 0) {
+        setError(
+          `${result.succeeded.length} 篇已下线，${result.failed.length} 篇无法下线（通常不是已发布状态）。`
+        );
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "批量下线失败");
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function runBulkTrash(ids: string[]) {
+    setActingId("bulk");
+    try {
+      const result = await batchTrashPosts(ids);
+      result.succeeded.forEach(patchPost);
+      setSelectedIds([]);
+      if (result.failed.length > 0) {
+        setError(
+          `${result.succeeded.length} 篇已移入回收站，${result.failed.length} 篇失败。`
+        );
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "批量移入回收站失败");
     } finally {
       setActingId(null);
     }
@@ -204,6 +269,12 @@ export function AdminPostsList() {
     statusFilter === "ALL"
       ? posts
       : posts.filter((post) => post.status === statusFilter);
+
+  const visibleSelectedIds = selectedIds.filter((id) =>
+    visiblePosts.some((post) => post.id === id)
+  );
+  const allVisibleSelected =
+    visiblePosts.length > 0 && visibleSelectedIds.length === visiblePosts.length;
 
   const emptyText =
     posts.length === 0
@@ -284,11 +355,35 @@ export function AdminPostsList() {
           void loadPosts();
         }}
       >
-        <input
+        <AdminInput
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
           placeholder="按标题搜索"
-          className="min-h-10 min-w-[12rem] flex-1 rounded-md border border-line bg-white/70 px-3 text-sm text-ink outline-none focus:border-seal"
+          className="min-w-[12rem] flex-1"
+        />
+        <AdminSelect
+          value={categoryFilter}
+          onValueChange={setCategoryFilter}
+          aria-label="按分类筛选"
+          options={[
+            { value: "", label: "全部分类" },
+            ...categories.map((category) => ({
+              value: category.id,
+              label: category.name,
+            })),
+          ]}
+        />
+        <AdminSelect
+          value={tagFilter}
+          onValueChange={setTagFilter}
+          aria-label="按标签筛选"
+          options={[
+            { value: "", label: "全部标签" },
+            ...tags.map((tag) => ({
+              value: tag.id,
+              label: `#${tag.name}`,
+            })),
+          ]}
         />
         <AdminButton type="submit">搜索</AdminButton>
       </form>
@@ -307,18 +402,80 @@ export function AdminPostsList() {
         ))}
       </nav>
 
+      {visibleSelectedIds.length > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white/70 px-4 py-3 text-sm">
+          <span className="text-mist">已选 {visibleSelectedIds.length} 篇</span>
+          <div className="flex flex-wrap gap-2">
+            <AdminButton
+              type="button"
+              disabled={actingId === "bulk"}
+              onClick={() => setBulkAction("unpublish")}
+            >
+              批量下线
+            </AdminButton>
+            <AdminButton
+              type="button"
+              variant="danger"
+              disabled={actingId === "bulk"}
+              onClick={() => setBulkAction("trash")}
+            >
+              批量回收站
+            </AdminButton>
+            <AdminButton type="button" onClick={() => setSelectedIds([])}>
+              取消选择
+            </AdminButton>
+          </div>
+        </div>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-mist">加载中…</p>
       ) : visiblePosts.length === 0 ? (
         <div className="border-y border-line py-12 text-sm text-mist">{emptyText}</div>
       ) : (
         <ul className="divide-y divide-line border-y border-line">
+          <li className="flex items-center gap-3 py-3 text-sm text-mist">
+            <AdminCheckbox
+              checked={
+                allVisibleSelected
+                  ? true
+                  : visibleSelectedIds.length > 0
+                    ? "indeterminate"
+                    : false
+              }
+              onCheckedChange={() => {
+                if (allVisibleSelected) {
+                  setSelectedIds((current) =>
+                    current.filter(
+                      (id) => !visiblePosts.some((post) => post.id === id)
+                    )
+                  );
+                } else {
+                  setSelectedIds((current) => [
+                    ...new Set([
+                      ...current,
+                      ...visiblePosts.map((post) => post.id),
+                    ]),
+                  ]);
+                }
+              }}
+              aria-label="全选当前列表"
+            />
+            <span>全选当前列表</span>
+          </li>
           {visiblePosts.map((post) => (
             <li
               key={post.id}
               className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="min-w-0">
+              <div className="flex min-w-0 items-start gap-3">
+                <AdminCheckbox
+                  checked={selectedIds.includes(post.id)}
+                  onCheckedChange={() => toggleSelected(post.id)}
+                  className="mt-1.5"
+                  aria-label={`选择 ${post.title}`}
+                />
+                <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-mist">
                   <span className="text-seal">
                     {statusFilters.find((item) => item.id === post.status)?.label}
@@ -344,8 +501,9 @@ export function AdminPostsList() {
                       .map((name) => ({ name }))}
                   />
                 </div>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 sm:pl-7">
                 {post.status === "TRASHED" ? (
                   <>
                     <AdminButton
@@ -368,6 +526,7 @@ export function AdminPostsList() {
                 ) : (
                   <>
                     <AdminButton href={`/admin/posts/${post.id}`}>编辑</AdminButton>
+                    <AdminButton href={`/admin/posts/${post.id}/preview`}>预览</AdminButton>
                     <AdminButton
                       type="button"
                       disabled={actingId === post.id}
@@ -401,7 +560,7 @@ export function AdminPostsList() {
                           type="button"
                           variant="danger"
                           disabled={actingId === post.id}
-                          onClick={() => void onTrash(post)}
+                          onClick={() => requestTrash(post)}
                         >
                           回收站
                         </AdminButton>
@@ -414,6 +573,19 @@ export function AdminPostsList() {
           ))}
         </ul>
       )}
+      {trashConfirm ? (
+        <AdminConfirmDialog
+          title="移入回收站"
+          message={`把「${trashConfirm.title}」移入回收站？`}
+          confirmLabel="确认移入回收站"
+          onCancel={() => setTrashConfirm(null)}
+          onConfirm={() => {
+            const post = trashConfirm;
+            setTrashConfirm(null);
+            void onTrash(post);
+          }}
+        />
+      ) : null}
       {deleteConfirm ? (
         <AdminConfirmDialog
           title="彻底删除"
@@ -421,6 +593,33 @@ export function AdminPostsList() {
           confirmLabel="确认彻底删除"
           onCancel={() => setDeleteConfirm(null)}
           onConfirm={onDeleteConfirm}
+        />
+      ) : null}
+      {bulkAction === "unpublish" ? (
+        <AdminConfirmDialog
+          title="批量下线"
+          message={`将下线已选的 ${visibleSelectedIds.length} 篇文章。不是已发布状态的会被跳过。`}
+          confirmLabel="确认下线"
+          confirmVariant="primary"
+          onCancel={() => setBulkAction(null)}
+          onConfirm={() => {
+            const ids = visibleSelectedIds;
+            setBulkAction(null);
+            void runBulkUnpublish(ids);
+          }}
+        />
+      ) : null}
+      {bulkAction === "trash" ? (
+        <AdminConfirmDialog
+          title="批量移入回收站"
+          message={`将把已选的 ${visibleSelectedIds.length} 篇文章移入回收站。已发布的会先下线再进入回收站。`}
+          confirmLabel="确认移入回收站"
+          onCancel={() => setBulkAction(null)}
+          onConfirm={() => {
+            const ids = visibleSelectedIds;
+            setBulkAction(null);
+            void runBulkTrash(ids);
+          }}
         />
       ) : null}
     </div>

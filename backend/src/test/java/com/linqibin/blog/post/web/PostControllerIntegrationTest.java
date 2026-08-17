@@ -118,6 +118,112 @@ class PostControllerIntegrationTest {
     }
 
     @Test
+    void listPostsEndpointFiltersByCategoryAndTag() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String categoryId = mockMvc.perform(post("/api/admin/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Java-%s"}
+                                """.formatted(suffix)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString()
+                .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+        String tagId = mockMvc.perform(post("/api/admin/tags")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Spring-%s"}
+                                """.formatted(suffix)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString()
+                .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+        UUID matchedId = createDraft("Matched Post", "# body");
+        createDraft("Unmatched Post", "# body");
+        mockMvc.perform(put("/api/admin/posts/" + matchedId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "title": "Matched Post",
+                          "markdownContent": "# body",
+                          "categoryId": "%s",
+                          "tagIds": ["%s"]
+                        }
+                        """.formatted(categoryId, tagId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/posts")
+                        .param("categoryId", categoryId)
+                        .param("tagId", tagId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].id").value(matchedId.toString()));
+    }
+
+    @Test
+    void batchUnpublishEndpointUnpublishesPublishedPosts() throws Exception {
+        UUID publishedId = createDraft("Live Post", "# content");
+        UUID draftId = createDraft("Draft Post", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + publishedId + "/publish"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/posts/batch-unpublish")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ids": ["%s", "%s"]}
+                                """.formatted(publishedId, draftId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded.length()").value(1))
+                .andExpect(jsonPath("$.data.succeeded[0].id").value(publishedId.toString()))
+                .andExpect(jsonPath("$.data.succeeded[0].status").value("UNPUBLISHED"))
+                .andExpect(jsonPath("$.data.failed.length()").value(1))
+                .andExpect(jsonPath("$.data.failed[0].id").value(draftId.toString()));
+    }
+
+    @Test
+    void batchTrashEndpointMovesPublishedAndDraftPostsToTrash() throws Exception {
+        UUID publishedId = createDraft("Live Post", "# content");
+        UUID draftId = createDraft("Draft Post", "# content");
+        mockMvc.perform(post("/api/admin/posts/" + publishedId + "/publish"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/admin/posts/batch-trash")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"ids": ["%s", "%s"]}
+                                """.formatted(publishedId, draftId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded.length()").value(2))
+                .andExpect(jsonPath("$.data.failed.length()").value(0));
+
+        mockMvc.perform(get("/api/admin/posts/" + publishedId))
+                .andExpect(jsonPath("$.data.status").value("TRASHED"));
+        mockMvc.perform(get("/api/admin/posts/" + draftId))
+                .andExpect(jsonPath("$.data.status").value("TRASHED"));
+    }
+
+    @Test
+    void dashboardEndpointReturnsCountsAndRecentPosts() throws Exception {
+        createDraft("Dashboard Draft", "# draft");
+        UUID publishedId = createDraft("Dashboard Live", "# live");
+        mockMvc.perform(post("/api/admin/posts/" + publishedId + "/publish"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/dashboard")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "dashboard-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.requestId").value("dashboard-request-id"))
+                .andExpect(jsonPath("$.data.counts.total").value(2))
+                .andExpect(jsonPath("$.data.counts.published").value(1))
+                .andExpect(jsonPath("$.data.counts.draft").value(1))
+                .andExpect(jsonPath("$.data.counts.unpublished").value(0))
+                .andExpect(jsonPath("$.data.recentlyEdited.length()").value(2))
+                .andExpect(jsonPath("$.data.recentlyPublished.length()").value(1))
+                .andExpect(jsonPath("$.data.recentlyPublished[0].id").value(publishedId.toString()))
+                .andExpect(jsonPath("$.data.recentlyEdited[0].markdownContent").doesNotExist());
+    }
+
+    @Test
     void getPostBySlugEndpointReturnsSavedPost() throws Exception {
         // 创建草稿后需要先发布，公开接口只返回已发布文章。
         String postId = mockMvc.perform(post("/api/admin/posts/drafts")
@@ -196,6 +302,26 @@ class PostControllerIntegrationTest {
                 .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("文章不存在: not-exists"))
                 .andExpect(jsonPath("$.requestId").value("missing-post-request-id"));
+    }
+
+    @Test
+    void previewEndpointRendersDraftWithoutPublishing() throws Exception {
+        UUID postId = createDraft("Preview Draft", "# Hello preview");
+
+        mockMvc.perform(get("/api/admin/posts/" + postId + "/preview")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "preview-post-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(header().string(RequestIdUtils.REQUEST_ID_HEADER, "preview-post-request-id"))
+                .andExpect(jsonPath("$.code").value("OK"))
+                .andExpect(jsonPath("$.requestId").value("preview-post-request-id"))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.title").value("Preview Draft"))
+                .andExpect(jsonPath("$.data.html").isNotEmpty())
+                .andExpect(jsonPath("$.data.viewCount").value(0));
+
+        mockMvc.perform(get("/api/admin/posts/" + postId))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"));
     }
 
     @Test
@@ -640,6 +766,39 @@ class PostControllerIntegrationTest {
         mockMvc.perform(get("/api/public/posts/archives"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void publicApisReturnCustomExcerptAndCoverUrl() throws Exception {
+        UUID postId = createDraftWithSlug("Cover Story", "# markdown body that is longer than excerpt", "cover-story");
+
+        mockMvc.perform(put("/api/admin/posts/" + postId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Cover Story",
+                                  "markdownContent": "# markdown body that is longer than excerpt",
+                                  "excerpt": "Handwritten summary",
+                                  "coverUrl": "/uploads/cover.jpg"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.excerpt").value("Handwritten summary"))
+                .andExpect(jsonPath("$.data.coverUrl").value("/uploads/cover.jpg"));
+
+        mockMvc.perform(post("/api/admin/posts/" + postId + "/publish"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/public/posts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].summary").value("Handwritten summary"))
+                .andExpect(jsonPath("$.data.items[0].coverUrl").value("/uploads/cover.jpg"));
+
+        mockMvc.perform(get("/api/public/posts/cover-story"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.summary").value("Handwritten summary"))
+                .andExpect(jsonPath("$.data.coverUrl").value("/uploads/cover.jpg"))
+                .andExpect(jsonPath("$.data.seoDescription").value("Handwritten summary"));
     }
 
     private UUID createDraft(String title, String markdownContent) throws Exception {

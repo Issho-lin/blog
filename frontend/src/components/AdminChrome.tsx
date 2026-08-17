@@ -8,6 +8,7 @@ import { SealMark } from "@/components/SealMark";
 import { logout } from "@/lib/api/posts";
 
 const navItems = [
+  { href: "/admin", label: "控制台", match: (path: string) => path === "/admin" },
   { href: "/admin/posts", label: "文章", match: (path: string) => path.startsWith("/admin/posts") },
   { href: "/admin/taxonomy", label: "分类标签", match: (path: string) => path.startsWith("/admin/taxonomy") },
   { href: "/admin/settings", label: "站点设置", match: (path: string) => path.startsWith("/admin/settings") },
@@ -31,36 +32,45 @@ export function AdminChrome({
   }
 
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-8">
-      <div className="flex min-w-0 items-center gap-3">
-        <SealMark size={34} className="shrink-0 text-seal seal-glow" />
-        <div className="min-w-0">
+    <header className="mb-8">
+      <div className="flex items-center justify-between gap-4 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <SealMark size={28} className="shrink-0 text-seal seal-glow" />
           <p className="text-xs tracking-[0.35em] text-gold">{eyebrow}</p>
-          <h1 className="font-serif text-3xl tracking-wide text-ink">{title}</h1>
-          <nav className="mt-3 flex flex-wrap gap-1 text-sm" aria-label="管理导航">
-            {navItems.map((item) => {
-              const active = item.match(pathname);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`admin-tab${active ? " is-active" : ""}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <AdminButton href="/">公开站</AdminButton>
+          <AdminButton type="button" onClick={() => void onLogout()}>
+            退出
+          </AdminButton>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <AdminButton href="/">公开站</AdminButton>
-        <AdminButton type="button" onClick={() => void onLogout()}>
-          退出
-        </AdminButton>
-        {children}
+
+      <nav
+        className="flex gap-1 overflow-x-auto border-b border-line text-sm"
+        aria-label="管理导航"
+      >
+        {navItems.map((item) => {
+          const active = item.match(pathname);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              className={`admin-tab shrink-0${active ? " is-active" : ""}`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="flex flex-col gap-4 pt-8 pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="font-serif text-3xl tracking-wide text-ink">{title}</h1>
+        {children ? (
+          <div className="flex shrink-0 flex-nowrap gap-2">{children}</div>
+        ) : null}
       </div>
-    </div>
+    </header>
   );
 }

@@ -44,10 +44,10 @@ public interface SpringDataPostRepository extends JpaRepository<PostEntity, UUID
     long countPublishedByTag(@Param("status") PostStatus status, @Param("tagId") UUID tagId);
 
     // 按关键词搜索已发布文章（标题和正文 ILIKE 匹配），分页返回。
-    @Query("SELECT e FROM PostEntity e WHERE e.status = :status AND (LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.markdownContent) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY e.publishedAt DESC")
+    @Query("SELECT e FROM PostEntity e WHERE e.status = :status AND (LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.markdownContent) LIKE LOWER(CONCAT('%', :keyword, '%')) OR (e.excerpt IS NOT NULL AND LOWER(e.excerpt) LIKE LOWER(CONCAT('%', :keyword, '%')))) ORDER BY e.publishedAt DESC")
     List<PostEntity> searchPublished(@Param("status") PostStatus status, @Param("keyword") String keyword, Pageable pageable);
 
     // 统计关键词搜索匹配的已发布文章总数。
-    @Query("SELECT COUNT(e) FROM PostEntity e WHERE e.status = :status AND (LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.markdownContent) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+    @Query("SELECT COUNT(e) FROM PostEntity e WHERE e.status = :status AND (LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(e.markdownContent) LIKE LOWER(CONCAT('%', :keyword, '%')) OR (e.excerpt IS NOT NULL AND LOWER(e.excerpt) LIKE LOWER(CONCAT('%', :keyword, '%'))))")
     long countSearchPublished(@Param("status") PostStatus status, @Param("keyword") String keyword);
 }

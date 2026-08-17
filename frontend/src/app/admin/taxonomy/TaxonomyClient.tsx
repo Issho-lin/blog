@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminButton } from "@/components/AdminButton";
 import { AdminChrome } from "@/components/AdminChrome";
+import { AdminConfirmDialog } from "@/components/AdminConfirmDialog";
+import { AdminInput } from "@/components/AdminField";
 import { CategoryMark, TagMark } from "@/components/TaxonomyMarks";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -140,9 +142,6 @@ export function AdminTaxonomyView() {
   );
 }
 
-const fieldClass =
-  "min-h-11 w-full rounded-xl border border-line bg-white/70 px-3 text-ink outline-none focus:border-seal";
-
 function CreateCategoryForm({
   onCreated,
   onError,
@@ -185,30 +184,28 @@ function CreateCategoryForm({
     <form onSubmit={onSubmit} className="mt-5 grid gap-3 rounded-sm border border-line bg-white/55 p-4 sm:grid-cols-2">
       <label className="grid gap-1.5 text-sm">
         <span className="text-mist">名称</span>
-        <input
+        <AdminInput
           required
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="例如：工程笔记"
-          className={fieldClass}
         />
       </label>
       <label className="grid gap-1.5 text-sm">
         <span className="text-mist">路径 slug（可空）</span>
-        <input
+        <AdminInput
           value={slug}
           onChange={(event) => setSlug(event.target.value)}
           placeholder="engineering"
-          className={`${fieldClass} font-mono`}
+          className="font-mono"
         />
       </label>
       <label className="grid gap-1.5 text-sm sm:col-span-2">
         <span className="text-mist">简介（可选）</span>
-        <input
+        <AdminInput
           value={description}
           onChange={(event) => setDescription(event.target.value)}
           placeholder="这一卷写什么"
-          className={fieldClass}
         />
       </label>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -263,21 +260,20 @@ function CreateTagForm({
     <form onSubmit={onSubmit} className="mt-5 grid gap-3 rounded-sm border border-line bg-white/55 p-4 sm:grid-cols-2">
       <label className="grid gap-1.5 text-sm">
         <span className="text-mist">名称</span>
-        <input
+        <AdminInput
           required
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="例如：Next.js"
-          className={fieldClass}
         />
       </label>
       <label className="grid gap-1.5 text-sm">
         <span className="text-mist">路径 slug（可空）</span>
-        <input
+        <AdminInput
           value={slug}
           onChange={(event) => setSlug(event.target.value)}
           placeholder="nextjs"
-          className={`${fieldClass} font-mono`}
+          className="font-mono"
         />
       </label>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
@@ -308,6 +304,7 @@ function CategoryRow({
   const [slug, setSlug] = useState(category.slug);
   const [description, setDescription] = useState(category.description ?? "");
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function onSave() {
     setSaving(true);
@@ -326,7 +323,6 @@ function CategoryRow({
   }
 
   async function onDelete() {
-    if (!window.confirm(`删除分类「${category.name}」？`)) return;
     setSaving(true);
     try {
       await deleteCategory(category.id);
@@ -358,18 +354,17 @@ function CategoryRow({
       <div className="grid gap-3 rounded-sm border border-line bg-white/70 p-4 sm:grid-cols-[1fr_8rem_auto]">
         <label className="grid gap-1.5 text-sm">
           <span className="text-mist">名称</span>
-          <input
+          <AdminInput
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className={fieldClass}
           />
         </label>
         <label className="grid gap-1.5 text-sm">
           <span className="text-mist">slug</span>
-          <input
+          <AdminInput
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
-            className={`${fieldClass} font-mono`}
+            className="font-mono"
           />
         </label>
         <div className="flex flex-wrap items-end gap-2">
@@ -396,20 +391,31 @@ function CategoryRow({
             type="button"
             variant="danger"
             disabled={saving}
-            onClick={() => void onDelete()}
+            onClick={() => setConfirmDelete(true)}
           >
             删除
           </AdminButton>
         </div>
         <label className="grid gap-1.5 text-sm sm:col-span-3">
           <span className="text-mist">简介（可选）</span>
-          <input
+          <AdminInput
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            className={fieldClass}
           />
         </label>
       </div>
+      {confirmDelete ? (
+        <AdminConfirmDialog
+          title="删除分类"
+          message={`删除分类「${category.name}」？`}
+          confirmLabel="确认删除"
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            void onDelete();
+          }}
+        />
+      ) : null}
     </li>
   );
 }
@@ -429,6 +435,7 @@ function TagRow({
   const [name, setName] = useState(tag.name);
   const [slug, setSlug] = useState(tag.slug);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function onSave() {
     setSaving(true);
@@ -447,7 +454,6 @@ function TagRow({
   }
 
   async function onDelete() {
-    if (!window.confirm(`删除标签「${tag.name}」？`)) return;
     setSaving(true);
     try {
       await deleteTag(tag.id);
@@ -479,18 +485,17 @@ function TagRow({
       <div className="grid gap-3 rounded-sm border border-line bg-white/70 p-4 sm:grid-cols-[1fr_8rem_auto]">
         <label className="grid gap-1.5 text-sm">
           <span className="text-mist">名称</span>
-          <input
+          <AdminInput
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className={fieldClass}
           />
         </label>
         <label className="grid gap-1.5 text-sm">
           <span className="text-mist">slug</span>
-          <input
+          <AdminInput
             value={slug}
             onChange={(event) => setSlug(event.target.value)}
-            className={`${fieldClass} font-mono`}
+            className="font-mono"
           />
         </label>
         <div className="flex flex-wrap items-end gap-2">
@@ -516,12 +521,24 @@ function TagRow({
             type="button"
             variant="danger"
             disabled={saving}
-            onClick={() => void onDelete()}
+            onClick={() => setConfirmDelete(true)}
           >
             删除
           </AdminButton>
         </div>
       </div>
+      {confirmDelete ? (
+        <AdminConfirmDialog
+          title="删除标签"
+          message={`删除标签「${tag.name}」？`}
+          confirmLabel="确认删除"
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            void onDelete();
+          }}
+        />
+      ) : null}
     </li>
   );
 }

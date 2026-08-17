@@ -90,6 +90,7 @@ class PostImportExportServiceTest {
         assertEquals(PostStatus.DRAFT, post.status()); // 导入永远创建草稿
         assertNotNull(post.categoryId());
         assertEquals(1, post.tagIds().size());
+        assertEquals("A description", post.excerpt());
     }
 
     @Test
@@ -197,6 +198,28 @@ class PostImportExportServiceTest {
         assertTrue(exported.contains("- Java"));
         assertTrue(exported.contains("status: DRAFT"));
         assertTrue(exported.contains("# content"));
+    }
+
+    @Test
+    void importAndExportPreserveExcerptAndCover() {
+        byte[] content = """
+                ---
+                title: Cover Import
+                slug: cover-import
+                excerpt: Front matter excerpt
+                cover: /uploads/from-import.jpg
+                ---
+                Body
+                """.getBytes(StandardCharsets.UTF_8);
+
+        Post imported = importExportService.importMarkdown("cover-import.md", content);
+
+        assertEquals("Front matter excerpt", imported.excerpt());
+        assertEquals("/uploads/from-import.jpg", imported.coverUrl());
+
+        String exported = importExportService.exportPost(imported.id());
+        assertTrue(exported.contains("excerpt: Front matter excerpt"));
+        assertTrue(exported.contains("cover: /uploads/from-import.jpg"));
     }
 
     @Test

@@ -25,6 +25,8 @@ class PostEntityMapperTest {
                 id,
                 "Hello JPA",
                 "hello-jpa",
+                "Custom excerpt",
+                "/uploads/cover.jpg",
                 "# content",
                 PostStatus.TRASHED,
                 null,
@@ -42,6 +44,8 @@ class PostEntityMapperTest {
         assertEquals(id, entity.getId());
         assertEquals("Hello JPA", entity.getTitle());
         assertEquals("hello-jpa", entity.getSlug());
+        assertEquals("Custom excerpt", entity.getExcerpt());
+        assertEquals("/uploads/cover.jpg", entity.getCoverUrl());
         assertEquals("# content", entity.getMarkdownContent());
         assertEquals(PostStatus.TRASHED, entity.getStatus());
         assertEquals(createdAt, entity.getCreatedAt());
@@ -61,6 +65,8 @@ class PostEntityMapperTest {
                 id,
                 "Draft Post",
                 "draft-post",
+                null,
+                null,
                 "",
                 PostStatus.DRAFT,
                 null,
@@ -78,6 +84,8 @@ class PostEntityMapperTest {
         assertEquals(id, post.id());
         assertEquals("Draft Post", post.title());
         assertEquals("draft-post", post.slug());
+        assertNull(post.excerpt());
+        assertNull(post.coverUrl());
         assertEquals("", post.markdownContent());
         assertEquals(PostStatus.DRAFT, post.status());
         assertEquals(createdAt, post.createdAt());

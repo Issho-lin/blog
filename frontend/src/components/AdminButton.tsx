@@ -1,5 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Slot } from "@radix-ui/react-slot";
+import {
+  type ButtonHTMLAttributes,
+  type ReactNode,
+  forwardRef,
+} from "react";
 
 const variants = {
   primary: "admin-btn admin-btn-primary",
@@ -19,6 +26,7 @@ type Shared = {
 type ButtonProps = Shared &
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
     href?: undefined;
+    asChild?: boolean;
   };
 
 type LinkProps = Shared & {
@@ -26,27 +34,50 @@ type LinkProps = Shared & {
   disabled?: boolean;
 };
 
-export function AdminButton(props: ButtonProps | LinkProps) {
-  const variant = props.variant ?? "ghost";
-  const className = [variants[variant], props.className].filter(Boolean).join(" ");
+function cx(...parts: Array<string | false | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
 
-  if (props.href) {
-    if (props.disabled) {
-      return <span className={`${className} pointer-events-none opacity-50`}>{props.children}</span>;
+export const AdminButton = forwardRef<HTMLButtonElement, ButtonProps | LinkProps>(
+  function AdminButton(props, ref) {
+    const variant = props.variant ?? "ghost";
+    const className = cx(variants[variant], props.className);
+
+    if ("href" in props && props.href) {
+      if (props.disabled) {
+        return (
+          <span className={cx(className, "pointer-events-none opacity-50")}>
+            {props.children}
+          </span>
+        );
+      }
+      return (
+        <Link href={props.href} className={className}>
+          {props.children}
+        </Link>
+      );
     }
+
+    const {
+      variant: _variant,
+      className: _className,
+      children,
+      type = "button",
+      asChild,
+      ...rest
+    } = props as ButtonProps;
+
+    const Comp = asChild ? Slot : "button";
+
     return (
-      <Link href={props.href} className={className}>
-        {props.children}
-      </Link>
+      <Comp
+        type={asChild ? undefined : type}
+        className={className}
+        ref={ref}
+        {...rest}
+      >
+        {children}
+      </Comp>
     );
   }
-
-  const { variant: _variant, className: _className, children, type = "button", ...rest } =
-    props as ButtonProps;
-
-  return (
-    <button type={type} className={className} {...rest}>
-      {children}
-    </button>
-  );
-}
+);

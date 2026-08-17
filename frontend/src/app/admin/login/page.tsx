@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AdminButton } from "@/components/AdminButton";
+import { AdminInput } from "@/components/AdminField";
 import { SealMark } from "@/components/SealMark";
 import { ApiError } from "@/lib/api/client";
 import { login } from "@/lib/api/posts";
@@ -21,7 +22,7 @@ export default function AdminLoginPage() {
     setError(null);
     try {
       await login(email, password);
-      router.replace("/admin/posts");
+      router.replace("/admin");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "登录失败，请稍后重试");
@@ -46,22 +47,22 @@ export default function AdminLoginPage() {
         <form onSubmit={onSubmit} className="mt-8 space-y-5">
           <label className="block space-y-2 text-sm">
             <span className="text-mist">邮箱</span>
-            <input
+            <AdminInput
               type="email"
               required
+              autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink outline-none transition-colors duration-200 focus:border-seal"
             />
           </label>
           <label className="block space-y-2 text-sm">
             <span className="text-mist">密码</span>
-            <input
+            <AdminInput
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-line bg-paper px-3 py-2.5 text-base text-ink outline-none transition-colors duration-200 focus:border-seal"
             />
           </label>
 

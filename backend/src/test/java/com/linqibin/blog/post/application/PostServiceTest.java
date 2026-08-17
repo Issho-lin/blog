@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.linqibin.blog.post.application.AdminDashboard;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.domain.SlugGenerator;
@@ -107,6 +108,79 @@ class PostServiceTest {
                 java.util.List.of(springPost),
                 postService.searchByTitleKeyword("spring")
         );
+    }
+
+    @Test
+    void searchAdminPostsFiltersByCategoryAndTag() {
+        PostService postService = createServiceAt("2026-07-30T10:00:00Z");
+        UUID categoryId = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        UUID tagId = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        Post matched = postService.createDraft(
+                "Matched", "# content", null, categoryId, java.util.List.of(tagId)
+        );
+        postService.createDraft("Other Category", "# content", null, UUID.randomUUID(), java.util.List.of(tagId));
+        postService.createDraft("Other Tag", "# content", null, categoryId, java.util.List.of(UUID.randomUUID()));
+
+        assertIterableEquals(
+                java.util.List.of(matched),
+                postService.searchAdminPosts(null, categoryId, tagId)
+        );
+    }
+
+    @Test
+    void batchUnpublishSkipsDraftsAndUnpublishesPublished() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draft = draftService.createDraft("Draft", "# content", null, null, null);
+        Post published = draftService.createDraft("Live", "# content", null, null, null);
+        PostService later = createServiceAt("2026-07-30T11:00:00Z");
+        later.publish(published.id());
+
+        var result = later.batchUnpublish(java.util.List.of(draft.id(), published.id()));
+
+        assertEquals(1, result.succeeded().size());
+        assertEquals(PostStatus.UNPUBLISHED, result.succeeded().get(0).status());
+        assertEquals(1, result.failed().size());
+        assertEquals(draft.id(), result.failed().get(0).id());
+    }
+
+    @Test
+    void batchMoveToTrashUnpublishesPublishedPostsFirst() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post published = draftService.createDraft("Live", "# content", null, null, null);
+        Post draft = draftService.createDraft("Draft", "# content", null, null, null);
+        PostService later = createServiceAt("2026-07-30T11:00:00Z");
+        later.publish(published.id());
+
+        var result = later.batchMoveToTrash(java.util.List.of(published.id(), draft.id()));
+
+        assertEquals(2, result.succeeded().size());
+        assertTrue(result.succeeded().stream().allMatch(post -> post.status() == PostStatus.TRASHED));
+        assertEquals(0, result.failed().size());
+    }
+
+    @Test
+    void getDashboardCountsStatusesAndRecentPosts() {
+        PostService morning = createServiceAt("2026-07-30T10:00:00Z");
+        Post firstPublished = morning.createDraft("First Live", "# content", null, null, null);
+        morning.createDraft("Still Draft", "# content", null, null, null);
+        PostService noon = createServiceAt("2026-07-30T12:00:00Z");
+        noon.publish(firstPublished.id());
+        Post secondPublished = noon.createDraft("Second Live", "# content", null, null, null);
+        PostService evening = createServiceAt("2026-07-30T18:00:00Z");
+        evening.publish(secondPublished.id());
+        evening.incrementViewCount(secondPublished.id());
+
+        AdminDashboard dashboard = evening.getDashboard();
+
+        assertEquals(3, dashboard.total());
+        assertEquals(2, dashboard.published());
+        assertEquals(1, dashboard.draft());
+        assertEquals(0, dashboard.unpublished());
+        assertEquals(0, dashboard.trashed());
+        assertEquals(1, dashboard.publishedViewCount());
+        assertEquals("Second Live", dashboard.recentlyEdited().get(0).title());
+        assertEquals("Second Live", dashboard.recentlyPublished().get(0).title());
+        assertEquals("First Live", dashboard.recentlyPublished().get(1).title());
     }
 
     @Test
@@ -350,6 +424,48 @@ class PostServiceTest {
         assertEquals(draftPost.version(), saveStatus.version());
         assertEquals(draftPost.updatedAt(), saveStatus.updatedAt());
         assertEquals(draftPost.status(), saveStatus.status());
+    }
+
+    @Test
+    void updatePostPersistsExcerptAndCoverUrl() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Cover Post", "# long body", null, null, null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        Post updated = updateService.updatePost(
+                draftPost.id(),
+                "Cover Post",
+                "# long body",
+                null,
+                null,
+                null,
+                null,
+                "A custom excerpt",
+                "/uploads/cover.jpg"
+        );
+
+        assertEquals("A custom excerpt", updated.excerpt());
+        assertEquals("/uploads/cover.jpg", updated.coverUrl());
+        assertEquals(1L, updated.version());
+    }
+
+    @Test
+    void searchPublishedPostsMatchesCustomExcerpt() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft(
+                "Unrelated Title",
+                "# body without keyword",
+                null,
+                null,
+                null,
+                "unique-excerpt-token",
+                null
+        );
+        PostService publishService = createServiceAt("2026-07-30T11:00:00Z");
+        publishService.publish(draftPost.id());
+
+        assertEquals(1, publishService.searchPublishedPosts("unique-excerpt-token", 1, 10).size());
+        assertEquals(1, publishService.countSearchPublishedPosts("unique-excerpt-token"));
     }
 
     private PostService createServiceAt(String instantValue) {

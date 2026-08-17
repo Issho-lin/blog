@@ -131,9 +131,7 @@ public class InMemoryPostRepository implements PostRepository {
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
         List<Post> matched = posts.values().stream()
                 .filter(post -> post.status() == PostStatus.PUBLISHED)
-                .filter(post -> normalized.isBlank()
-                        || post.title().toLowerCase().contains(normalized)
-                        || post.markdownContent().toLowerCase().contains(normalized))
+                .filter(post -> post.matchesKeyword(normalized))
                 .sorted(Comparator.comparing(Post::publishedAt).reversed())
                 .toList();
         int fromIndex = (page - 1) * pageSize;
@@ -149,9 +147,7 @@ public class InMemoryPostRepository implements PostRepository {
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
         return posts.values().stream()
                 .filter(post -> post.status() == PostStatus.PUBLISHED)
-                .filter(post -> normalized.isBlank()
-                        || post.title().toLowerCase().contains(normalized)
-                        || post.markdownContent().toLowerCase().contains(normalized))
+                .filter(post -> post.matchesKeyword(normalized))
                 .count();
     }
 }

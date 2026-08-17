@@ -12,6 +12,8 @@ public record Post(
         UUID id,
         String title,
         String slug,
+        String excerpt,
+        String coverUrl,
         String markdownContent,
         PostStatus status,
         UUID categoryId,
@@ -23,6 +25,9 @@ public record Post(
         long version,
         long viewCount
 ) {
+
+    private static final int MAX_EXCERPT_LENGTH = 500;
+    private static final int MAX_COVER_URL_LENGTH = 500;
 
     public Post {
         // 记录对象创建时先做基础兜底校验，避免出现不完整的文章实体。
@@ -39,6 +44,8 @@ public record Post(
 
         title = title.trim();
         slug = slug.trim();
+        excerpt = normalizeOptional(excerpt, MAX_EXCERPT_LENGTH, "摘要");
+        coverUrl = normalizeOptional(coverUrl, MAX_COVER_URL_LENGTH, "封面地址");
 
         // 标题和 slug 允许传入带空格的原始值，但最终落到实体里时不能为空。
         if (title.isBlank()) {
@@ -58,14 +65,29 @@ public record Post(
             List<UUID> tagIds,
             Instant now
     ) {
+        return createDraft(id, title, slug, markdownContent, categoryId, tagIds, now, null, null);
+    }
+
+    public static Post createDraft(
+            UUID id,
+            String title,
+            String slug,
+            String markdownContent,
+            UUID categoryId,
+            List<UUID> tagIds,
+            Instant now,
+            String excerpt,
+            String coverUrl
+    ) {
         // 新建文章时默认就是草稿，发布时间和回收站前状态都还不存在，version 和 viewCount 从 0 开始。
-        return new Post(id, title, slug, markdownContent, PostStatus.DRAFT,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, PostStatus.DRAFT,
                 categoryId, tagIds, now, now, null, null, 0, 0);
     }
 
-    // 更新文章内容、分类和标签。每次修改都递增 version，用于乐观锁并发冲突检测。
+    // 更新文章内容、分类、标签、摘要和封面。每次修改都递增 version，用于乐观锁并发冲突检测。
     public Post update(String title, String slug, String markdownContent,
-                       UUID categoryId, List<UUID> tagIds, Instant now) {
+                       UUID categoryId, List<UUID> tagIds, Instant now,
+                       String excerpt, String coverUrl) {
         // 回收站里的文章必须先恢复，再允许继续编辑，避免"已删除内容"被悄悄改动。
         if (status == PostStatus.TRASHED) {
             throw new InvalidPostStateTransitionException(status, "update");
@@ -75,7 +97,7 @@ public record Post(
             throw new IllegalArgumentException("正文不能为空");
         }
 
-        return new Post(id, title, slug, markdownContent, status,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, status,
                 categoryId, tagIds, createdAt, now, publishedAt, previousStatusBeforeTrash,
                 version + 1, viewCount);
     }
@@ -95,7 +117,7 @@ public record Post(
 
         // 重复发布时保留首次发布时间，只更新最近一次操作时间。阅读数保持不变。
         Instant firstPublishedAt = publishedAt == null ? now : publishedAt;
-        return new Post(id, title, slug, markdownContent, PostStatus.PUBLISHED,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, PostStatus.PUBLISHED,
                 categoryId, tagIds, createdAt, now, firstPublishedAt, null,
                 version + 1, viewCount);
     }
@@ -105,7 +127,7 @@ public record Post(
         if (status != PostStatus.PUBLISHED) {
             throw new InvalidPostStateTransitionException(status, "unpublish");
         }
-        return new Post(id, title, slug, markdownContent, PostStatus.UNPUBLISHED,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, PostStatus.UNPUBLISHED,
                 categoryId, tagIds, createdAt, now, publishedAt, null,
                 version + 1, viewCount);
     }
@@ -115,7 +137,7 @@ public record Post(
         if (status != PostStatus.DRAFT && status != PostStatus.UNPUBLISHED) {
             throw new InvalidPostStateTransitionException(status, "moveToTrash");
         }
-        return new Post(id, title, slug, markdownContent, PostStatus.TRASHED,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, PostStatus.TRASHED,
                 categoryId, tagIds, createdAt, now, publishedAt, status,
                 version + 1, viewCount);
     }
@@ -128,7 +150,7 @@ public record Post(
         PostStatus restoredStatus = previousStatusBeforeTrash == PostStatus.UNPUBLISHED
                 ? PostStatus.UNPUBLISHED
                 : PostStatus.DRAFT;
-        return new Post(id, title, slug, markdownContent, restoredStatus,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, restoredStatus,
                 categoryId, tagIds, createdAt, now, publishedAt, null,
                 version + 1, viewCount);
     }
@@ -142,8 +164,37 @@ public record Post(
 
     // 文章被公开访问时递增阅读数。不递增 version，因为这不是作者编辑操作。
     public Post incrementViewCount() {
-        return new Post(id, title, slug, markdownContent, status,
+        return new Post(id, title, slug, excerpt, coverUrl, markdownContent, status,
                 categoryId, tagIds, createdAt, updatedAt, publishedAt,
                 previousStatusBeforeTrash, version, viewCount + 1);
+    }
+
+    // 公开搜索：匹配标题、自定义摘要和正文。
+    public boolean matchesKeyword(String keyword) {
+        String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
+        if (normalized.isBlank()) {
+            return true;
+        }
+        if (title.toLowerCase().contains(normalized)) {
+            return true;
+        }
+        if (markdownContent.toLowerCase().contains(normalized)) {
+            return true;
+        }
+        return excerpt != null && excerpt.toLowerCase().contains(normalized);
+    }
+
+    private static String normalizeOptional(String value, int maxLength, String fieldName) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > maxLength) {
+            throw new IllegalArgumentException(fieldName + "不能超过 " + maxLength + " 个字符");
+        }
+        return trimmed;
     }
 }

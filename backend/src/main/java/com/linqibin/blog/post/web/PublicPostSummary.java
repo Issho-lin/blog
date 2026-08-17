@@ -10,6 +10,7 @@ public record PublicPostSummary(
         String title,
         String slug,
         String summary,
+        String coverUrl,
         Instant publishedAt,
         int readingTimeMinutes,
         long viewCount,

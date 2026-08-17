@@ -47,6 +47,8 @@ class PostRepositoryAdapterTest {
                 post.id(),
                 post.title(),
                 post.slug(),
+                post.excerpt(),
+                post.coverUrl(),
                 post.markdownContent(),
                 PostStatus.PUBLISHED,
                 null,
@@ -79,6 +81,8 @@ class PostRepositoryAdapterTest {
                 UUID.fromString("44444444-4444-4444-4444-444444444444"),
                 "Read Me",
                 "read-me",
+                null,
+                null,
                 "# read",
                 PostStatus.PUBLISHED,
                 null,
@@ -115,6 +119,8 @@ class PostRepositoryAdapterTest {
                 UUID.fromString("55555555-5555-5555-5555-555555555555"),
                 "First",
                 "first",
+                null,
+                null,
                 "# one",
                 PostStatus.DRAFT,
                 null,
@@ -130,6 +136,8 @@ class PostRepositoryAdapterTest {
                 UUID.fromString("66666666-6666-6666-6666-666666666666"),
                 "Second",
                 "second",
+                null,
+                null,
                 "# two",
                 PostStatus.UNPUBLISHED,
                 null,
@@ -166,6 +174,6 @@ class PostRepositoryAdapterTest {
         Instant publishedAt = status == PostStatus.PUBLISHED
                 ? Instant.parse("2026-08-05T12:00:00Z")
                 : null;
-        return new Post(id, title, slug, "# content", status, null, null, createdAt, updatedAt, publishedAt, null, 0L, 0L);
+        return new Post(id, title, slug, null, null, "# content", status, null, null, createdAt, updatedAt, publishedAt, null, 0L, 0L);
     }
 }

@@ -38,7 +38,7 @@ export function SearchBox({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="查找标题或正文"
           autoComplete="off"
-          className="search-field w-full bg-transparent py-3 text-base text-ink outline-none placeholder:text-mist/80"
+          className="search-field w-full py-3 text-base outline-none placeholder:text-mist/80"
         />
       </label>
       <button
