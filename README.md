@@ -8,6 +8,7 @@
 blog
 ├── backend                     Spring Boot 后端工程（含 Dockerfile）
 ├── frontend                    Next.js 公开站 + 管理端
+├── agent                       Python AI 平台（uv / FastAPI，与博客解耦）
 ├── docker-compose.yml          PostgreSQL / Redis / MinIO / 后端应用
 ├── package.json                根目录编排：一键启动前后端
 ├── .env.example                环境变量示例
@@ -63,6 +64,13 @@ pnpm stop
 ```bash
 pnpm dev:backend
 pnpm dev:frontend
+pnpm dev:agent
+```
+
+AI 服务在 `agent/`，用 uv 管理，默认 `http://localhost:8090`。第一次：
+
+```bash
+cd agent && cp .env.example .env && uv sync && uv run agent
 ```
 
 **整套容器启动**（含后端镜像构建）：

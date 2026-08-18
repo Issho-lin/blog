@@ -7,6 +7,9 @@
     "dev:deps": "docker compose up -d postgres redis minio",
     "dev:backend": "cd backend && SPRING_PROFILES_ACTIVE=jpa MEDIA_STORAGE_TYPE=s3 ./mvnw spring-boot:run",
     "dev:frontend": "pnpm --dir frontend dev",
+    "dev:agent": "cd agent && uv run agent",
+    "test:backend": "docker compose up -d postgres && cd backend && ./mvnw test",
+    "test:agent": "cd agent && uv run pytest",
     "stop": "docker compose stop postgres redis minio"
   },
   "devDependencies": {
