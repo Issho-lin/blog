@@ -1,13 +1,19 @@
 package com.linqibin.blog.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-// Web MVC 配置：注册静态资源处理器，让上传的图片可以通过 URL 直接访问。
-// 资源保存路径与公开 URL 解耦：URL 前缀映射到本地存储目录。
+// 仅本地磁盘模式把 /uploads/** 映射到文件系统；对象存储由 PublicMediaController 代读。
 @Configuration
+@ConditionalOnProperty(
+        prefix = "blog.media",
+        name = "storage-type",
+        havingValue = "local",
+        matchIfMissing = true
+)
 public class WebMvcConfiguration implements WebMvcConfigurer {
 
     @Value("${blog.media.upload-dir:./uploads}")

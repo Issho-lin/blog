@@ -17,6 +17,7 @@ import com.linqibin.blog.support.AuthTestSupport;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -293,5 +294,47 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("OK"))
                 .andExpect(jsonPath("$.data.status").value("UP"));
+    }
+
+    @Test
+    void forgotPasswordAlwaysReturnsSameMessage() throws Exception {
+        mockMvc.perform(post("/api/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "nobody@blog.com"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.message").value("如果该邮箱存在，我们已发送重置说明"));
+    }
+
+    @Test
+    void changePasswordAndLoginWithNewPassword() throws Exception {
+        MockHttpSession session = AuthTestSupport.loginAndGetSession(mockMvc);
+
+        mockMvc.perform(put("/api/auth/password")
+                        .session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "currentPassword": "admin123",
+                                  "newPassword": "newpass12"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/logout").session(session))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "admin@blog.com",
+                                  "password": "newpass12"
+                                }
+                                """))
+                .andExpect(status().isOk());
     }
 }

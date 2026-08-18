@@ -1,9 +1,12 @@
 package com.linqibin.blog.post.application;
 
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -11,6 +14,8 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.linqibin.blog.media.application.MediaService;
+import com.linqibin.blog.media.infrastructure.FileStorageService;
 import com.linqibin.blog.post.application.AdminDashboard;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
@@ -450,6 +455,32 @@ class PostServiceTest {
     }
 
     @Test
+    void updatePostPersistsSeoTitleAndDescription() {
+        PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
+        Post draftPost = draftService.createDraft("Seo Post", "# body", "seo-post", null, null);
+        PostService updateService = createServiceAt("2026-07-30T11:00:00Z");
+
+        Post updated = updateService.updatePost(
+                draftPost.id(),
+                "Seo Post",
+                "# body",
+                "seo-post",
+                null,
+                null,
+                null,
+                null,
+                null,
+                "Custom SEO Title",
+                "Custom SEO Description"
+        );
+
+        assertEquals("Custom SEO Title", updated.seoTitle());
+        assertEquals("Custom SEO Description", updated.seoDescription());
+        updateService.publish(updated.id());
+        assertEquals("seo-post", updateService.getPublishedPostBySlug("seo-post").slug());
+    }
+
+    @Test
     void searchPublishedPostsMatchesCustomExcerpt() {
         PostService draftService = createServiceAt("2026-07-30T10:00:00Z");
         Post draftPost = draftService.createDraft(
@@ -468,12 +499,112 @@ class PostServiceTest {
         assertEquals(1, publishService.countSearchPublishedPosts("unique-excerpt-token"));
     }
 
+    @Test
+    void findAdjacentPublishedReturnsOlderAndNewerNeighbors() {
+        Post oldest = createServiceAt("2026-07-30T10:00:00Z")
+                .createDraft("Oldest", "# a", "oldest", null, null);
+        createServiceAt("2026-07-30T10:10:00Z").publish(oldest.id());
+        Post middle = createServiceAt("2026-07-30T11:00:00Z")
+                .createDraft("Middle", "# b", "middle", null, null);
+        createServiceAt("2026-07-30T11:10:00Z").publish(middle.id());
+        Post newest = createServiceAt("2026-07-30T12:00:00Z")
+                .createDraft("Newest", "# c", "newest", null, null);
+        createServiceAt("2026-07-30T12:10:00Z").publish(newest.id());
+        Post draft = createServiceAt("2026-07-30T13:00:00Z")
+                .createDraft("Draft", "# d", "draft-only", null, null);
+
+        PostService postService = createServiceAt("2026-07-30T14:00:00Z");
+
+        AdjacentPublishedPosts middleNeighbors = postService.findAdjacentPublished(middle.id());
+        assertEquals("oldest", middleNeighbors.previous().slug());
+        assertEquals("newest", middleNeighbors.next().slug());
+
+        AdjacentPublishedPosts newestNeighbors = postService.findAdjacentPublished(newest.id());
+        assertEquals("middle", newestNeighbors.previous().slug());
+        assertEquals(null, newestNeighbors.next());
+
+        AdjacentPublishedPosts oldestNeighbors = postService.findAdjacentPublished(oldest.id());
+        assertEquals(null, oldestNeighbors.previous());
+        assertEquals("middle", oldestNeighbors.next().slug());
+
+        AdjacentPublishedPosts draftNeighbors = postService.findAdjacentPublished(draft.id());
+        assertEquals(null, draftNeighbors.previous());
+        assertEquals(null, draftNeighbors.next());
+    }
+
+    @Test
+    void permanentlyDeleteRemovesExclusiveLocalImagesAndKeepsSharedOnes() {
+        RecordingFileStorage storage = new RecordingFileStorage();
+        MediaService mediaService = new MediaService(
+                storage,
+                Clock.fixed(Instant.parse("2026-07-30T10:00:00Z"), ZoneOffset.UTC)
+        );
+        PostService postService = createServiceAt("2026-07-30T10:00:00Z", mediaService);
+
+        var exclusive = mediaService.uploadImage(
+                "only-a.png", "image/png", 16, new ByteArrayInputStream(new byte[16]));
+        var shared = mediaService.uploadImage(
+                "shared.png", "image/png", 16, new ByteArrayInputStream(new byte[16]));
+
+        Post postA = postService.createDraft(
+                "A",
+                "![a](" + exclusive.url() + ") ![s](" + shared.url() + ")",
+                "post-a",
+                null,
+                null
+        );
+        Post postB = postService.createDraft(
+                "B",
+                "![s](" + shared.url() + ")",
+                "post-b",
+                null,
+                null,
+                null,
+                shared.url()
+        );
+
+        postService.moveToTrash(postA.id());
+        postService.permanentlyDelete(postA.id());
+
+        assertFalse(storage.contains(exclusive.storedFilename()));
+        assertTrue(storage.contains(shared.storedFilename()));
+
+        postService.moveToTrash(postB.id());
+        postService.permanentlyDelete(postB.id());
+
+        assertFalse(storage.contains(shared.storedFilename()));
+    }
+
     private PostService createServiceAt(String instantValue) {
+        return createServiceAt(instantValue, null);
+    }
+
+    private PostService createServiceAt(String instantValue, MediaService mediaService) {
         return new PostService(
                 postRepository,
                 slugGenerator,
                 Clock.fixed(Instant.parse(instantValue), ZoneOffset.UTC),
-                idSupplier
+                idSupplier,
+                mediaService
         );
+    }
+
+    private static class RecordingFileStorage implements FileStorageService {
+        private final Set<String> stored = new HashSet<>();
+
+        @Override
+        public String store(String storedFilename, java.io.InputStream content) {
+            stored.add(storedFilename);
+            return "/uploads/" + storedFilename;
+        }
+
+        @Override
+        public void delete(String storedFilename) {
+            stored.remove(storedFilename);
+        }
+
+        boolean contains(String storedFilename) {
+            return stored.contains(storedFilename);
+        }
     }
 }

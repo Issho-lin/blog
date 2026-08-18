@@ -37,6 +37,12 @@ public class PostEntity {
     @Column(name = "cover_url", length = 500)
     private String coverUrl;
 
+    @Column(name = "seo_title", length = 120)
+    private String seoTitle;
+
+    @Column(name = "seo_description", length = 500)
+    private String seoDescription;
+
     @Column(name = "markdown_content", nullable = false, columnDefinition = "text")
     private String markdownContent;
 
@@ -85,6 +91,8 @@ public class PostEntity {
             String slug,
             String excerpt,
             String coverUrl,
+            String seoTitle,
+            String seoDescription,
             String markdownContent,
             PostStatus status,
             UUID categoryId,
@@ -101,6 +109,8 @@ public class PostEntity {
         this.slug = slug;
         this.excerpt = excerpt;
         this.coverUrl = coverUrl;
+        this.seoTitle = seoTitle;
+        this.seoDescription = seoDescription;
         this.markdownContent = markdownContent;
         this.status = status;
         this.categoryId = categoryId;
@@ -131,6 +141,14 @@ public class PostEntity {
 
     public String getCoverUrl() {
         return coverUrl;
+    }
+
+    public String getSeoTitle() {
+        return seoTitle;
+    }
+
+    public String getSeoDescription() {
+        return seoDescription;
     }
 
     public String getMarkdownContent() {

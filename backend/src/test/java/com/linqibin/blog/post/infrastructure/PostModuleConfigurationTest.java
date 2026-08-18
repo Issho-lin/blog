@@ -8,12 +8,16 @@ import org.springframework.context.annotation.Configuration;
 
 import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
 import com.linqibin.blog.markdown.parser.FrontMatterParser;
+import com.linqibin.blog.media.application.MediaService;
 import com.linqibin.blog.post.domain.PostRepository;
 import com.linqibin.blog.taxonomy.application.CategoryService;
 import com.linqibin.blog.taxonomy.application.TagService;
+import com.linqibin.blog.post.domain.PostRevisionRepository;
 import com.linqibin.blog.post.infrastructure.persistence.PostEntityMapper;
 import com.linqibin.blog.post.infrastructure.persistence.PostRepositoryAdapter;
+import com.linqibin.blog.post.infrastructure.persistence.PostRevisionRepositoryAdapter;
 import com.linqibin.blog.post.infrastructure.persistence.SpringDataPostRepository;
+import com.linqibin.blog.post.infrastructure.persistence.SpringDataPostRevisionRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -44,6 +48,9 @@ class PostModuleConfigurationTest {
                     assertThat(context).hasSingleBean(SpringDataPostRepository.class);
                     assertThat(context).hasSingleBean(PostRepository.class);
                     assertThat(context.getBean(PostRepository.class)).isInstanceOf(PostRepositoryAdapter.class);
+                    assertThat(context).hasSingleBean(SpringDataPostRevisionRepository.class);
+                    assertThat(context.getBean(PostRevisionRepository.class))
+                            .isInstanceOf(PostRevisionRepositoryAdapter.class);
                 });
     }
 
@@ -71,6 +78,11 @@ class PostModuleConfigurationTest {
         FrontMatterExporter frontMatterExporter() {
             return new FrontMatterExporter();
         }
+
+        @Bean
+        MediaService mediaService() {
+            return Mockito.mock(MediaService.class);
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -79,6 +91,11 @@ class PostModuleConfigurationTest {
         @Bean
         SpringDataPostRepository springDataPostRepository() {
             return Mockito.mock(SpringDataPostRepository.class);
+        }
+
+        @Bean
+        SpringDataPostRevisionRepository springDataPostRevisionRepository() {
+            return Mockito.mock(SpringDataPostRevisionRepository.class);
         }
     }
 }

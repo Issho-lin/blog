@@ -23,6 +23,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         type: "article",
         images: post.coverUrl ? [{ url: post.coverUrl }] : undefined,
       },
+      twitter: {
+        card: post.coverUrl ? "summary_large_image" : "summary",
+        title: post.seoTitle ?? post.title,
+        description: post.seoDescription ?? post.summary ?? undefined,
+        images: post.coverUrl ? [post.coverUrl] : undefined,
+      },
     };
   } catch {
     return { title: "文章未找到" };
@@ -43,6 +49,7 @@ export default async function PostDetailPage({ params }: PageProps) {
           post={post}
           backHref="/"
           backLabel="← 返回文章列表"
+          commentsSlug={post.slug}
         />
         <SiteFooter siteName={settings.siteName} />
       </div>

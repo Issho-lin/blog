@@ -6,7 +6,7 @@ import { AdminButton } from "@/components/AdminButton";
 import { AdminChrome } from "@/components/AdminChrome";
 import { AdminInput, AdminTextarea } from "@/components/AdminField";
 import { ApiError } from "@/lib/api/client";
-import { getAdminSiteSettings, updateSiteSettings } from "@/lib/api/posts";
+import { getAdminSiteSettings, updateSiteSettings, changePassword } from "@/lib/api/posts";
 import { fallbackSiteSettings } from "@/lib/site-settings";
 import type { SiteSettings } from "@/lib/api/types";
 
@@ -187,7 +187,94 @@ export function AdminSiteSettings() {
           </div>
         </form>
       )}
+
+      <PasswordSection />
     </div>
+  );
+}
+
+function PasswordSection() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setError("两次输入的新密码不一致");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await changePassword(currentPassword, newPassword);
+      setMessage(result.message);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "修改失败");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-16 border-t border-line pt-10">
+      <h2 className="font-serif text-2xl tracking-wide text-ink">修改密码</h2>
+      <p className="mt-2 text-sm text-mist">登录后在此更换密码。忘记密码请从登录页申请重置。</p>
+      {error ? (
+        <p className="mt-4 rounded-xl bg-seal-soft px-4 py-3 text-sm text-warn">{error}</p>
+      ) : null}
+      {message ? (
+        <p className="mt-4 rounded-xl border border-line bg-white/70 px-4 py-3 text-sm text-mist">
+          {message}
+        </p>
+      ) : null}
+      <form className="mt-6 grid max-w-md gap-5" onSubmit={(event) => void onSubmit(event)}>
+        <label className="grid gap-1 text-sm">
+          <span className="text-mist">当前密码</span>
+          <AdminInput
+            type="password"
+            autoComplete="current-password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-mist">新密码</span>
+          <AdminInput
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={newPassword}
+            onChange={(event) => setNewPassword(event.target.value)}
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-sm">
+          <span className="text-mist">确认新密码</span>
+          <AdminInput
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+          />
+        </label>
+        <div>
+          <AdminButton type="submit" variant="primary" disabled={saving}>
+            {saving ? "更新中…" : "更新密码"}
+          </AdminButton>
+        </div>
+      </form>
+    </section>
   );
 }
 

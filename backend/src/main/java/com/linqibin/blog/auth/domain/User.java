@@ -45,4 +45,12 @@ public record User(
     public User recordLogin(Instant now) {
         return new User(id, email, passwordHash, displayName, role, createdAt, now, now);
     }
+
+    public User withPasswordHash(String passwordHash, Instant now) {
+        Objects.requireNonNull(passwordHash, "密码哈希不能为空");
+        if (passwordHash.isBlank()) {
+            throw new IllegalArgumentException("密码哈希不能为空");
+        }
+        return new User(id, email, passwordHash, displayName, role, createdAt, now, lastLoginAt);
+    }
 }

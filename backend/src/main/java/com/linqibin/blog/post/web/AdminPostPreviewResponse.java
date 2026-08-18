@@ -27,6 +27,8 @@ public record AdminPostPreviewResponse(
         String seoTitle,
         String seoDescription,
         String canonicalUrl,
+        PublicPostNeighbor previousPost,
+        PublicPostNeighbor nextPost,
         PostStatus status
 ) {
 
@@ -51,6 +53,8 @@ public record AdminPostPreviewResponse(
                 detail.seoTitle(),
                 detail.seoDescription(),
                 detail.canonicalUrl(),
+                detail.previousPost(),
+                detail.nextPost(),
                 status
         );
     }

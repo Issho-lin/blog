@@ -1,9 +1,11 @@
 package com.linqibin.blog.post.application;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -13,7 +15,9 @@ import org.junit.jupiter.api.Test;
 
 import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
 import com.linqibin.blog.markdown.parser.FrontMatterParser;
+import com.linqibin.blog.media.application.MediaService;
 import com.linqibin.blog.media.exception.InvalidFileException;
+import com.linqibin.blog.media.infrastructure.FileStorageService;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostStatus;
 import com.linqibin.blog.post.domain.SlugGenerator;
@@ -61,7 +65,8 @@ class PostImportExportServiceTest {
 
         this.importExportService = new PostImportExportService(
                 postService, categoryService, tagService,
-                new FrontMatterParser(), new FrontMatterExporter(), slugGenerator
+                new FrontMatterParser(), new FrontMatterExporter(), slugGenerator,
+                memoryMediaService()
         );
     }
 
@@ -250,5 +255,71 @@ class PostImportExportServiceTest {
         assertTrue(reimported.slug().startsWith("round-trip"));
         assertTrue(reimported.markdownContent().contains("# Original Content"));
         assertEquals(PostStatus.DRAFT, reimported.status());
+    }
+
+    @Test
+    void importRewritesRelativeImagesAndWarnsWhenMissing() {
+        byte[] markdown = """
+                ---
+                title: With Images
+                ---
+                ![ok](./images/cat.png)
+                ![miss](./images/missing.png)
+                """.getBytes(StandardCharsets.UTF_8);
+        ImportedImage image = new ImportedImage("images/cat.png", "image/png", new byte[] {1, 2, 3});
+
+        ImportOutcome outcome = importExportService.importMarkdown(
+                "with-images.md",
+                markdown,
+                List.of(image),
+                null,
+                false
+        );
+
+        assertTrue(outcome.post().markdownContent().contains("/uploads/"));
+        assertTrue(outcome.post().markdownContent().contains("![ok]("));
+        assertTrue(outcome.post().markdownContent().contains("./images/missing.png"));
+        assertEquals(1, outcome.warnings().size());
+        assertTrue(outcome.warnings().get(0).contains("images/missing.png"));
+    }
+
+    @Test
+    void importIntoPublishedPostUnpublishesAfterConfirm() {
+        Post live = postService.createDraft("Live", "# old", "live-post", null, null);
+        postService.publish(live.id());
+
+        byte[] markdown = """
+                ---
+                title: Replacement
+                ---
+                # new body
+                """.getBytes(StandardCharsets.UTF_8);
+
+        assertThrows(InvalidFileException.class, () -> importExportService.importMarkdown(
+                "replacement.md", markdown, List.of(), live.id(), false
+        ));
+
+        ImportOutcome outcome = importExportService.importMarkdown(
+                "replacement.md", markdown, List.of(), live.id(), true
+        );
+        assertEquals(live.id(), outcome.post().id());
+        assertEquals("Replacement", outcome.post().title());
+        assertEquals("live-post", outcome.post().slug());
+        assertEquals(PostStatus.UNPUBLISHED, outcome.post().status());
+        assertTrue(outcome.post().markdownContent().contains("# new body"));
+    }
+
+    private static MediaService memoryMediaService() {
+        FileStorageService storage = new FileStorageService() {
+            @Override
+            public String store(String storedFilename, InputStream content) {
+                return "/uploads/" + storedFilename;
+            }
+
+            @Override
+            public void delete(String storedFilename) {
+            }
+        };
+        return new MediaService(storage, Clock.fixed(Instant.parse("2026-08-11T10:00:00Z"), ZoneOffset.UTC));
     }
 }

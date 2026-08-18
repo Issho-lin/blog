@@ -3,7 +3,9 @@ package com.linqibin.blog.post.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.linqibin.blog.media.application.MediaService;
 import com.linqibin.blog.media.exception.InvalidFileException;
+import com.linqibin.blog.media.infrastructure.FileStorageService;
 import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
 import com.linqibin.blog.markdown.parser.FrontMatterParser;
 import com.linqibin.blog.post.domain.SlugGenerator;
@@ -13,6 +15,7 @@ import com.linqibin.blog.taxonomy.application.TagService;
 import com.linqibin.blog.taxonomy.infrastructure.InMemoryCategoryRepository;
 import com.linqibin.blog.taxonomy.infrastructure.InMemoryTagRepository;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -53,7 +56,8 @@ class PostImportExportEdgeCaseTest {
                 tagService,
                 new FrontMatterParser(),
                 new FrontMatterExporter(),
-                slugGenerator
+                slugGenerator,
+                memoryMediaService()
         );
     }
 
@@ -86,5 +90,19 @@ class PostImportExportEdgeCaseTest {
 
         assertEquals("中文标题", post.title());
         assertTrue(post.markdownContent().contains("你好，世界"));
+    }
+
+    private static MediaService memoryMediaService() {
+        FileStorageService storage = new FileStorageService() {
+            @Override
+            public String store(String storedFilename, InputStream content) {
+                return "/uploads/" + storedFilename;
+            }
+
+            @Override
+            public void delete(String storedFilename) {
+            }
+        };
+        return new MediaService(storage, Clock.systemUTC());
     }
 }

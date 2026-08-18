@@ -80,6 +80,12 @@ export default function AdminLoginPage() {
           </AdminButton>
         </form>
 
+        <p className="mt-4 text-center text-sm">
+          <Link href="/admin/forgot-password" className="text-mist hover:text-seal">
+            忘记密码
+          </Link>
+        </p>
+
         <p className="mt-8 text-center text-sm text-mist">
           <Link href="/" className="cursor-pointer transition-colors duration-200 hover:text-seal">
             返回公开站点

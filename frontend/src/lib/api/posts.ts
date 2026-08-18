@@ -1,4 +1,4 @@
-import { apiRequest, downloadFile } from "./client";
+import { apiRequest, apiUpload, downloadFile } from "./client";
 import type {
   AdminPost,
   ArchiveGroup,
@@ -15,6 +15,10 @@ import type {
   SiteSettings,
   Tag,
   UpdatePostInput,
+  PublicComment,
+  AdminComment,
+  PostRevisionSummary,
+  PostRevisionDetail,
 } from "./types";
 
 export function listPublishedPosts(
@@ -136,15 +140,16 @@ export function updatePost(postId: string, input: UpdatePostInput) {
   });
 }
 
-export function uploadImage(file: File) {
+export function uploadImage(
+  file: File,
+  options?: { onProgress?: (percent: number) => void }
+) {
   const body = new FormData();
   body.append("file", file);
-  return apiRequest<{ url: string; originalFilename: string }>(
+  return apiUpload<{ url: string; originalFilename: string }>(
     "/api/admin/media/images",
-    {
-      method: "POST",
-      body,
-    }
+    body,
+    options?.onProgress
   );
 }
 
@@ -199,13 +204,25 @@ export function previewMarkdown(markdown: string) {
   });
 }
 
-export function importMarkdown(file: File) {
+export function importMarkdown(
+  file: File,
+  options?: {
+    images?: File[];
+    targetPostId?: string;
+    confirmOverwrite?: boolean;
+    onProgress?: (percent: number) => void;
+  }
+) {
   const body = new FormData();
   body.append("file", file);
-  return apiRequest<ImportPostResult>("/api/admin/imports", {
-    method: "POST",
-    body,
-  });
+  options?.images?.forEach((image) => body.append("images", image));
+  if (options?.targetPostId) {
+    body.append("targetPostId", options.targetPostId);
+  }
+  if (options?.confirmOverwrite) {
+    body.append("confirmOverwrite", "true");
+  }
+  return apiUpload<ImportPostResult>("/api/admin/imports", body, options?.onProgress);
 }
 
 export function exportPost(postId: string, fallbackName = "post.md") {
@@ -282,5 +299,68 @@ export function updateSiteSettings(payload: Omit<SiteSettings, "aboutHtml" | "up
   return apiRequest<SiteSettings>("/api/admin/site", {
     method: "PUT",
     body: payload,
+  });
+}
+
+export function listPublicComments(slug: string) {
+  return apiRequest<PublicComment[]>(
+    `/api/public/posts/${encodeURIComponent(slug)}/comments`
+  );
+}
+
+export function createPublicComment(
+  slug: string,
+  authorName: string,
+  content: string
+) {
+  return apiRequest<PublicComment>(
+    `/api/public/posts/${encodeURIComponent(slug)}/comments`,
+    { method: "POST", body: { authorName, content } }
+  );
+}
+
+export function listAdminComments() {
+  return apiRequest<AdminComment[]>("/api/admin/comments");
+}
+
+export function deleteAdminComment(commentId: string) {
+  return apiRequest<void>(`/api/admin/comments/${commentId}`, { method: "DELETE" });
+}
+
+export function listPostRevisions(postId: string) {
+  return apiRequest<PostRevisionSummary[]>(`/api/admin/posts/${postId}/revisions`);
+}
+
+export function getPostRevision(postId: string, revisionId: string) {
+  return apiRequest<PostRevisionDetail>(
+    `/api/admin/posts/${postId}/revisions/${revisionId}`
+  );
+}
+
+export function restorePostRevision(postId: string, revisionId: string) {
+  return apiRequest<AdminPost>(
+    `/api/admin/posts/${postId}/revisions/${revisionId}/restore`,
+    { method: "POST" }
+  );
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return apiRequest<{ message: string }>("/api/auth/password", {
+    method: "PUT",
+    body: { currentPassword, newPassword },
+  });
+}
+
+export function forgotPassword(email: string) {
+  return apiRequest<{ message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return apiRequest<{ message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: { token, newPassword },
   });
 }

@@ -3,7 +3,6 @@ package com.linqibin.blog.markdown.exporter;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 // Front Matter 导出器：从文章元数据生成带 YAML Front Matter 的 Markdown 文件内容。
 // 导出格式示例：
@@ -36,6 +35,24 @@ public class FrontMatterExporter {
             Instant updatedAt,
             String markdownBody
     ) {
+        return export(title, slug, excerpt, cover, category, tags, status, publishedAt, updatedAt,
+                null, null, markdownBody);
+    }
+
+    public String export(
+            String title,
+            String slug,
+            String excerpt,
+            String cover,
+            String category,
+            List<String> tags,
+            String status,
+            Instant publishedAt,
+            Instant updatedAt,
+            String seoTitle,
+            String seoDescription,
+            String markdownBody
+    ) {
         Objects.requireNonNull(title, "title 不能为空");
         Objects.requireNonNull(slug, "slug 不能为空");
         Objects.requireNonNull(markdownBody, "markdownBody 不能为空");
@@ -63,6 +80,12 @@ public class FrontMatterExporter {
             appendField(sb, "published_at", publishedAt.toString());
         }
         appendField(sb, "status", status);
+        if (seoTitle != null && !seoTitle.isBlank()) {
+            appendField(sb, "seo_title", seoTitle);
+        }
+        if (seoDescription != null && !seoDescription.isBlank()) {
+            appendField(sb, "seo_description", seoDescription);
+        }
         if (updatedAt != null) {
             appendField(sb, "updated_at", updatedAt.toString());
         }

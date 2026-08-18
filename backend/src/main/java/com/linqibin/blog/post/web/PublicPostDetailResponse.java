@@ -28,6 +28,8 @@ public record PublicPostDetailResponse(
         // SEO 字段：前端用于生成 title、description、canonical、Open Graph 标签。
         String seoTitle,
         String seoDescription,
-        String canonicalUrl
+        String canonicalUrl,
+        PublicPostNeighbor previousPost,
+        PublicPostNeighbor nextPost
 ) {
 }

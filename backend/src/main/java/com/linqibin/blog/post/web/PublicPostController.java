@@ -111,7 +111,11 @@ public class PublicPostController {
     public PublicPostDetailResponse getPostBySlug(@PathVariable String slug) {
         Post post = postService.getPublishedPostBySlug(slug);
         postService.incrementViewCount(post.id());
-        return postDetailAssembler.toPublicDetail(post, post.viewCount() + 1);
+        return postDetailAssembler.toPublicDetail(
+                post,
+                post.viewCount() + 1,
+                postService.findAdjacentPublished(post.id())
+        );
     }
 
     // 归档列表：按年月分组返回已发布文章的标题和 slug，供归档页使用。

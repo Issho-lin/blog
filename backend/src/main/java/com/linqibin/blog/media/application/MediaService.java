@@ -3,6 +3,7 @@ package com.linqibin.blog.media.application;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import com.linqibin.blog.media.domain.MediaFile;
 import com.linqibin.blog.media.exception.InvalidFileException;
 import com.linqibin.blog.media.infrastructure.FileStorageService;
+import com.linqibin.blog.post.domain.Post;
 
 // 媒体上传服务：校验文件类型和大小，生成安全文件名，调用存储服务保存。
 // 校验不只依赖扩展名，还检查 Content-Type，防止伪装文件。
@@ -87,6 +89,29 @@ public class MediaService {
     // 使用 UUID 生成存储文件名，避免路径遍历和文件名冲突。
     private String generateStoredFilename(String extension) {
         String uuid = UUID.randomUUID().toString().replace("-", "");
-        return uuid + extension;
+        return uuid + extension.toLowerCase();
+    }
+
+    public int deleteUnreferencedLocalFiles(Post deletedPost, List<Post> remainingPosts) {
+        Set<String> candidates = LocalMediaReferences.filenamesIn(deletedPost);
+        Set<String> stillUsed = new java.util.LinkedHashSet<>();
+        if (remainingPosts != null) {
+            for (Post post : remainingPosts) {
+                stillUsed.addAll(LocalMediaReferences.filenamesIn(post));
+            }
+        }
+        int removed = 0;
+        for (String filename : candidates) {
+            if (stillUsed.contains(filename)) {
+                continue;
+            }
+            try {
+                fileStorageService.delete(filename);
+                removed++;
+            } catch (RuntimeException ignored) {
+                // 缺文件或存储失败不阻断文章删除。
+            }
+        }
+        return removed;
     }
 }

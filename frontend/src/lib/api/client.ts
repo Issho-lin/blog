@@ -79,6 +79,57 @@ export async function apiRequest<T>(
   return payload.data;
 }
 
+export function apiUpload<T>(
+  path: string,
+  body: FormData,
+  onProgress?: (percent: number) => void
+): Promise<T> {
+  if (typeof XMLHttpRequest === "undefined") {
+    return apiRequest<T>(path, { method: "POST", body });
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", resolveUrl(path));
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (event) => {
+      if (!onProgress || !event.lengthComputable || event.total <= 0) return;
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      const rawText = xhr.responseText ?? "";
+      if (!rawText) {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(undefined as T);
+          return;
+        }
+        reject(new ApiError("HTTP_ERROR", `请求失败 (${xhr.status})`, xhr.status));
+        return;
+      }
+      try {
+        const payload = JSON.parse(rawText) as ApiResponse<T>;
+        if (xhr.status >= 200 && xhr.status < 300 && payload.code === "OK") {
+          resolve(payload.data);
+          return;
+        }
+        reject(
+          new ApiError(
+            payload.code ?? "HTTP_ERROR",
+            payload.message ?? `请求失败 (${xhr.status})`,
+            xhr.status
+          )
+        );
+      } catch {
+        reject(new ApiError("HTTP_ERROR", `请求失败 (${xhr.status})`, xhr.status));
+      }
+    };
+    xhr.onerror = () => {
+      reject(new TypeError("Failed to fetch"));
+    };
+    xhr.send(body);
+  });
+}
+
 function resolveUrl(path: string) {
   const baseUrl = resolveBaseUrl();
   return `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;

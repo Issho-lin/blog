@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.domain.PostRepository;
-import com.linqibin.blog.post.domain.PostStatus;
 
 // 内存版文章仓库：当前用于开发和测试阶段，后续可以替换成数据库实现。
 public class InMemoryPostRepository implements PostRepository {
@@ -62,7 +61,7 @@ public class InMemoryPostRepository implements PostRepository {
     public List<Post> findPublishedPosts(int page, int pageSize) {
         // 过滤已发布文章并按发布时间倒序排列，然后做分页截取。
         List<Post> published = posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .sorted(Comparator.comparing(Post::publishedAt).reversed())
                 .toList();
         int fromIndex = (page - 1) * pageSize;
@@ -76,14 +75,14 @@ public class InMemoryPostRepository implements PostRepository {
     @Override
     public long countPublishedPosts() {
         return posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .count();
     }
 
     @Override
     public List<Post> findPublishedPostsByCategory(UUID categoryId, int page, int pageSize) {
         List<Post> filtered = posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> categoryId.equals(post.categoryId()))
                 .sorted(Comparator.comparing(Post::publishedAt).reversed())
                 .toList();
@@ -98,7 +97,7 @@ public class InMemoryPostRepository implements PostRepository {
     @Override
     public long countPublishedPostsByCategory(UUID categoryId) {
         return posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> categoryId.equals(post.categoryId()))
                 .count();
     }
@@ -106,7 +105,7 @@ public class InMemoryPostRepository implements PostRepository {
     @Override
     public List<Post> findPublishedPostsByTag(UUID tagId, int page, int pageSize) {
         List<Post> filtered = posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> post.tagIds().contains(tagId))
                 .sorted(Comparator.comparing(Post::publishedAt).reversed())
                 .toList();
@@ -121,7 +120,7 @@ public class InMemoryPostRepository implements PostRepository {
     @Override
     public long countPublishedPostsByTag(UUID tagId) {
         return posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> post.tagIds().contains(tagId))
                 .count();
     }
@@ -130,7 +129,7 @@ public class InMemoryPostRepository implements PostRepository {
     public List<Post> searchPublishedPosts(String keyword, int page, int pageSize) {
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
         List<Post> matched = posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> post.matchesKeyword(normalized))
                 .sorted(Comparator.comparing(Post::publishedAt).reversed())
                 .toList();
@@ -146,7 +145,7 @@ public class InMemoryPostRepository implements PostRepository {
     public long countSearchPublishedPosts(String keyword) {
         String normalized = keyword == null ? "" : keyword.trim().toLowerCase();
         return posts.values().stream()
-                .filter(post -> post.status() == PostStatus.PUBLISHED)
+                .filter(Post::isPubliclyReadable)
                 .filter(post -> post.matchesKeyword(normalized))
                 .count();
     }

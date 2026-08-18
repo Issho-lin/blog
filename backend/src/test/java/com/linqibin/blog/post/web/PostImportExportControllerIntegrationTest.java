@@ -66,6 +66,72 @@ class PostImportExportControllerIntegrationTest {
     }
 
     @Test
+    void importWithCompanionImageRewritesMarkdown() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "with-image.md",
+                "text/markdown",
+                """
+                        ---
+                        title: With Image
+                        ---
+                        ![cat](./cat.png)
+                        """.getBytes(StandardCharsets.UTF_8)
+        );
+        MockMultipartFile image = new MockMultipartFile(
+                "images",
+                "cat.png",
+                "image/png",
+                new byte[] {1, 2, 3, 4}
+        );
+
+        mockMvc.perform(multipart("/api/admin/imports").file(file).file(image)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "import-image-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("With Image"))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.warnings").isArray());
+    }
+
+    @Test
+    void importIntoExistingRequiresConfirmation() throws Exception {
+        MvcResult createResult = mockMvc.perform(post("/api/admin/posts/drafts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Existing",
+                                  "markdownContent": "# old",
+                                  "slug": "existing-import"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String postId = createResult.getResponse().getContentAsString()
+                .replaceAll(".*\"id\"\\s*:\\s*\"([^\"]+)\".*", "$1");
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "new.md",
+                "text/markdown",
+                "# replacement".getBytes(StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/admin/imports").file(file)
+                        .param("targetPostId", postId)
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "import-no-confirm-request-id"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_FILE"));
+
+        mockMvc.perform(multipart("/api/admin/imports").file(file)
+                        .param("targetPostId", postId)
+                        .param("confirmOverwrite", "true")
+                        .header(RequestIdUtils.REQUEST_ID_HEADER, "import-overwrite-request-id"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(postId))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"));
+    }
+
+    @Test
     void importRejectsNonMarkdownExtension() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file",

@@ -2,6 +2,8 @@ package com.linqibin.blog.post.web;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpHeaders;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.linqibin.blog.post.application.ImportedImage;
 import com.linqibin.blog.post.application.PostImportExportService;
 
 // 管理端文章导入导出接口。
@@ -28,15 +31,37 @@ public class AdminPostImportExportController {
         this.importExportService = importExportService;
     }
 
-    // 导入 Markdown 文件，创建草稿文章。
     @PostMapping("/imports")
-    public ResponseEntity<ImportPostResponse> importMarkdown(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<ImportPostResponse> importMarkdown(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "images", required = false) MultipartFile[] images,
+            @RequestParam(value = "targetPostId", required = false) UUID targetPostId,
+            @RequestParam(value = "confirmOverwrite", defaultValue = "false") boolean confirmOverwrite
+    ) throws IOException {
         byte[] content = file.getBytes();
-        var post = importExportService.importMarkdown(file.getOriginalFilename(), content);
-        return ResponseEntity.ok(ImportPostResponse.from(post));
+        List<ImportedImage> companionImages = new ArrayList<>();
+        if (images != null) {
+            for (MultipartFile image : images) {
+                if (image == null || image.isEmpty()) {
+                    continue;
+                }
+                companionImages.add(new ImportedImage(
+                        image.getOriginalFilename(),
+                        image.getContentType(),
+                        image.getBytes()
+                ));
+            }
+        }
+        var outcome = importExportService.importMarkdown(
+                file.getOriginalFilename(),
+                content,
+                companionImages,
+                targetPostId,
+                confirmOverwrite
+        );
+        return ResponseEntity.ok(ImportPostResponse.from(outcome));
     }
 
-    // 导出文章为 Markdown 文件下载。
     @GetMapping("/posts/{id}/export")
     public ResponseEntity<byte[]> exportPost(@PathVariable UUID id) {
         var result = importExportService.exportPostWithFilename(id);

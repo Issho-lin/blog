@@ -2,11 +2,12 @@
   "name": "blog",
   "private": true,
   "scripts": {
+    "install:all": "pnpm install && pnpm --dir frontend install && cd backend && ./mvnw -q -DskipTests dependency:go-offline",
     "dev": "pnpm run dev:deps && concurrently -k -n api,web -c green,cyan \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
-    "dev:deps": "docker compose up -d postgres redis",
-    "dev:backend": "cd backend && SPRING_PROFILES_ACTIVE=jpa ./mvnw spring-boot:run",
+    "dev:deps": "docker compose up -d postgres redis minio",
+    "dev:backend": "cd backend && SPRING_PROFILES_ACTIVE=jpa MEDIA_STORAGE_TYPE=s3 ./mvnw spring-boot:run",
     "dev:frontend": "pnpm --dir frontend dev",
-    "stop": "docker compose stop postgres redis"
+    "stop": "docker compose stop postgres redis minio"
   },
   "devDependencies": {
     "concurrently": "^10.0.4"

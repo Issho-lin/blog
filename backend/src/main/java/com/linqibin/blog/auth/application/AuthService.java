@@ -76,4 +76,22 @@ public class AuthService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new InvalidCredentialsException("用户不存在"));
     }
+
+    public User changePassword(User principal, String currentPassword, String newPassword) {
+        if (principal == null) {
+            throw new InvalidCredentialsException("未登录");
+        }
+        User user = userRepository.findById(principal.id())
+                .orElseThrow(() -> new InvalidCredentialsException("未登录"));
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.passwordHash())) {
+            throw new InvalidCredentialsException("当前密码不正确");
+        }
+        AuthPasswords.assertStrong(newPassword);
+        if (passwordEncoder.matches(newPassword, user.passwordHash())) {
+            throw new InvalidCredentialsException("新密码不能与当前密码相同");
+        }
+        Instant now = Instant.now(clock);
+        User updated = user.withPasswordHash(passwordEncoder.encode(newPassword), now);
+        return userRepository.save(updated);
+    }
 }

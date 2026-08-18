@@ -13,7 +13,9 @@ public record FrontMatter(
         String date,
         String category,
         List<String> tags,
-        String status
+        String status,
+        String seoTitle,
+        String seoDescription
 ) {
 
     // 从 SnakeYAML 解析出的原始 Map 中提取已知字段。
@@ -21,7 +23,7 @@ public record FrontMatter(
     @SuppressWarnings("unchecked")
     public static FrontMatter fromMap(Map<String, Object> map) {
         if (map == null) {
-            return new FrontMatter(null, null, null, null, null, null, List.of(), null);
+            return new FrontMatter(null, null, null, null, null, null, List.of(), null, null, null);
         }
 
         String title = getString(map, "title");
@@ -39,6 +41,14 @@ public record FrontMatter(
         }
         String category = getString(map, "category");
         String status = getString(map, "status");
+        String seoTitle = getString(map, "seo_title");
+        if (seoTitle == null) {
+            seoTitle = getString(map, "seoTitle");
+        }
+        String seoDescription = getString(map, "seo_description");
+        if (seoDescription == null) {
+            seoDescription = getString(map, "seoDescription");
+        }
 
         // tags 可以是 YAML 列表或逗号分隔的字符串。
         List<String> tags = List.of();
@@ -55,7 +65,8 @@ public record FrontMatter(
                     .toList();
         }
 
-        return new FrontMatter(title, slug, description, cover, date, category, tags, status);
+        return new FrontMatter(title, slug, description, cover, date, category, tags, status,
+                seoTitle, seoDescription);
     }
 
     private static String getString(Map<String, Object> map, String key) {

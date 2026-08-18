@@ -47,6 +47,8 @@ public class SecurityConfiguration {
                 .requestMatchers("/uploads/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                 .requestMatchers("/api/auth/**").authenticated()
                 .requestMatchers("/actuator/**").permitAll()
                 // 管理接口需要认证

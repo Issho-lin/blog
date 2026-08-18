@@ -8,7 +8,7 @@
 blog
 ├── backend                     Spring Boot 后端工程（含 Dockerfile）
 ├── frontend                    Next.js 公开站 + 管理端
-├── docker-compose.yml          PostgreSQL / Redis / 后端应用
+├── docker-compose.yml          PostgreSQL / Redis / MinIO / 后端应用
 ├── package.json                根目录编排：一键启动前后端
 ├── .env.example                环境变量示例
 ├── 产品需求文档-个人博客.md
@@ -52,7 +52,7 @@ pnpm --dir frontend install
 pnpm dev
 ```
 
-会依次：启动 PostgreSQL / Redis → 同时跑后端（8080）和前端（3000）。在该终端按 `Ctrl+C` 会停掉前后端进程。数据库容器仍会在后台运行，需要关掉时执行：
+会依次：启动 PostgreSQL / Redis / MinIO → 同时跑后端（8080）和前端（3000）。后端默认 `MEDIA_STORAGE_TYPE=s3`，图片写入 MinIO，公开 URL 仍是 `/uploads/...`（由后端代读）。在该终端按 `Ctrl+C` 会停掉前后端进程。依赖容器仍会在后台运行，需要关掉时执行：
 
 ```bash
 pnpm stop
@@ -78,6 +78,7 @@ JDK_IMAGE=docker.m.daocloud.io/library/eclipse-temurin:17-jdk-alpine
 JRE_IMAGE=docker.m.daocloud.io/library/eclipse-temurin:17-jre-alpine
 POSTGRES_IMAGE=docker.m.daocloud.io/library/postgres:17-alpine
 REDIS_IMAGE=docker.m.daocloud.io/library/redis:7-alpine
+MINIO_IMAGE=docker.m.daocloud.io/minio/minio:latest
 ```
 
 也可在 Docker Desktop → Settings → Docker Engine 增加 `registry-mirrors`。
@@ -87,6 +88,7 @@ REDIS_IMAGE=docker.m.daocloud.io/library/redis:7-alpine
 - 健康检查：`http://localhost:8080/api/health`
 - PostgreSQL：`5432`
 - Redis：`6379`
+- MinIO API：`9000`，控制台：`http://localhost:9001`（默认账号 `minio` / `minioadmin`）
 
 ## 前端启动
 
@@ -117,21 +119,21 @@ docker compose logs -f backend
 docker compose down
 ```
 
-上传图片保存在 Docker volume `backend_uploads` 中，容器重建后仍会保留。
+上传图片保存在 MinIO volume `minio_data` 中（桶名默认 `blog-media`），容器重建后仍会保留。公开访问路径仍是 `/uploads/{文件名}`。原先落在本地 `backend/uploads/` 的文件不会自动迁入 MinIO；切换后若旧图 404，可暂时把 `MEDIA_STORAGE_TYPE` 改回 `local`，或自行把文件拷进桶。
 
 ## 仅启动依赖（本地 IDEA 开发）
 
-只起数据库和 Redis：
+只起数据库、Redis 和 MinIO：
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres redis minio
 ```
 
-然后在 IDEA 运行 `BackendApplication`，或：
+然后在 IDEA 运行 `BackendApplication`（需设置 `MEDIA_STORAGE_TYPE=s3`），或：
 
 ```bash
 cd backend
-SPRING_PROFILES_ACTIVE=jpa ./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=jpa MEDIA_STORAGE_TYPE=s3 ./mvnw spring-boot:run
 ```
 
 不设 `jpa` profile 时默认使用内存仓库，适合快速联调接口。
@@ -146,6 +148,8 @@ REDIS_HOST / REDIS_PORT
 ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME
 CORS_ALLOWED_ORIGINS
 MEDIA_UPLOAD_DIR
+MEDIA_STORAGE_TYPE（`local` 或 `s3`，测试默认 `local`）
+S3_ENDPOINT / S3_REGION / S3_BUCKET / S3_ACCESS_KEY / S3_SECRET_KEY
 SPRING_PROFILES_ACTIVE=jpa
 ```
 

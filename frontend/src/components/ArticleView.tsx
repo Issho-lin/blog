@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ArticleShareActions } from "@/components/ArticleShareActions";
+import { CommentSection } from "@/components/CommentSection";
 import { PostContent } from "@/components/PostContent";
 import { PrintArticleButton } from "@/components/PrintArticleButton";
 import { TaxonomyRow } from "@/components/TaxonomyMarks";
@@ -19,10 +21,12 @@ export function ArticleView({
   backLabel,
   showViewCount = true,
   showPrint = true,
+  commentsSlug,
 }: {
   post: Pick<
     PublicPostDetail,
     | "title"
+    | "slug"
     | "html"
     | "summary"
     | "coverUrl"
@@ -34,11 +38,14 @@ export function ArticleView({
     | "tagNames"
     | "tagSlugs"
     | "tableOfContents"
+    | "previousPost"
+    | "nextPost"
   >;
   backHref: string;
   backLabel: string;
   showViewCount?: boolean;
   showPrint?: boolean;
+  commentsSlug?: string;
 }) {
   const hasToc = (post.tableOfContents?.length ?? 0) > 0;
   const dateLabel = formatDate(post.publishedAt) || "尚未发布";
@@ -59,7 +66,14 @@ export function ArticleView({
           >
             {backLabel}
           </Link>
-          {showPrint ? <PrintArticleButton /> : null}
+          <div className="flex flex-wrap items-center gap-4">
+            <ArticleShareActions
+              title={post.title}
+              text={post.summary}
+              path={`/posts/${post.slug}`}
+            />
+            {showPrint ? <PrintArticleButton /> : null}
+          </div>
         </div>
 
         <header className="mt-8 space-y-5 border-b border-line pb-10">
@@ -110,6 +124,47 @@ export function ArticleView({
         </header>
 
         <PostContent html={post.html} />
+
+        <nav
+          className="print-hide mt-14 space-y-6 border-t border-line pt-8"
+          aria-label="相邻文章"
+        >
+          <div className="grid gap-6 sm:grid-cols-2">
+            {post.previousPost ? (
+              <Link
+                href={`/posts/${post.previousPost.slug}`}
+                className="group min-w-0 cursor-pointer"
+              >
+                <p className="text-xs tracking-[0.2em] text-gold">上一篇</p>
+                <p className="mt-2 font-serif text-lg leading-snug tracking-wide text-ink transition-colors duration-200 group-hover:text-seal">
+                  {post.previousPost.title}
+                </p>
+              </Link>
+            ) : (
+              <p className="text-sm text-mist">没有更早的文章</p>
+            )}
+            {post.nextPost ? (
+              <Link
+                href={`/posts/${post.nextPost.slug}`}
+                className="group min-w-0 cursor-pointer sm:text-right"
+              >
+                <p className="text-xs tracking-[0.2em] text-gold">下一篇</p>
+                <p className="mt-2 font-serif text-lg leading-snug tracking-wide text-ink transition-colors duration-200 group-hover:text-seal">
+                  {post.nextPost.title}
+                </p>
+              </Link>
+            ) : (
+              <p className="text-sm text-mist sm:text-right">没有更新的文章</p>
+            )}
+          </div>
+          <Link
+            href="/archive"
+            className="inline-block cursor-pointer text-sm text-mist transition-colors duration-200 hover:text-seal"
+          >
+            返回归档
+          </Link>
+        </nav>
+        {commentsSlug ? <CommentSection slug={commentsSlug} /> : null}
       </article>
 
       {hasToc ? (

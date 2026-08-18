@@ -7,6 +7,8 @@ export type EditorBackup = {
   markdown: string;
   excerpt: string;
   coverUrl: string;
+  seoTitle: string;
+  seoDescription: string;
   categoryId: string;
   tagIds: string[];
 };
@@ -56,6 +58,8 @@ export function backupMatchesPost(
     markdownContent: string;
     excerpt: string | null;
     coverUrl: string | null;
+    seoTitle?: string | null;
+    seoDescription?: string | null;
     categoryId: string | null;
     tagIds: string[] | null;
   }
@@ -68,6 +72,8 @@ export function backupMatchesPost(
     backup.markdown === (post.markdownContent ?? "") &&
     backup.excerpt === (post.excerpt ?? "") &&
     backup.coverUrl === (post.coverUrl ?? "") &&
+    (backup.seoTitle ?? "") === (post.seoTitle ?? "") &&
+    (backup.seoDescription ?? "") === (post.seoDescription ?? "") &&
     backup.categoryId === (post.categoryId ?? "") &&
     backupTags === tags
   );

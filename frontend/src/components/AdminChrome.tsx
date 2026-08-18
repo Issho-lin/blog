@@ -10,6 +10,7 @@ import { logout } from "@/lib/api/posts";
 const navItems = [
   { href: "/admin", label: "控制台", match: (path: string) => path === "/admin" },
   { href: "/admin/posts", label: "文章", match: (path: string) => path.startsWith("/admin/posts") },
+  { href: "/admin/comments", label: "评论", match: (path: string) => path.startsWith("/admin/comments") },
   { href: "/admin/taxonomy", label: "分类标签", match: (path: string) => path.startsWith("/admin/taxonomy") },
   { href: "/admin/settings", label: "站点设置", match: (path: string) => path.startsWith("/admin/settings") },
 ] as const;

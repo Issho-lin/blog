@@ -13,11 +13,13 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.linqibin.blog.auth.application.AuthService;
+import com.linqibin.blog.auth.application.PasswordResetService;
 import com.linqibin.blog.auth.domain.User;
 import com.linqibin.blog.auth.exception.InvalidCredentialsException;
 
@@ -28,11 +30,13 @@ import com.linqibin.blog.auth.exception.InvalidCredentialsException;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
     private final SecurityContextRepository securityContextRepository =
             new HttpSessionSecurityContextRepository();
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, PasswordResetService passwordResetService) {
         this.authService = authService;
+        this.passwordResetService = passwordResetService;
     }
 
     @PostMapping("/login")
@@ -52,6 +56,29 @@ public class AuthController {
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
         return AuthResponse.from(user);
+    }
+
+    @PostMapping("/forgot-password")
+    public MessageResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return new MessageResponse(passwordResetService.requestReset(request.email()));
+    }
+
+    @PostMapping("/reset-password")
+    public MessageResponse resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return new MessageResponse("密码已重置，请使用新密码登录");
+    }
+
+    @PutMapping("/password")
+    public MessageResponse changePassword(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        if (user == null) {
+            throw new InvalidCredentialsException("未登录");
+        }
+        authService.changePassword(user, request.currentPassword(), request.newPassword());
+        return new MessageResponse("密码已更新");
     }
 
     @PostMapping("/logout")

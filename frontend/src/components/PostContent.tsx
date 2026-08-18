@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { copyText } from "@/lib/clipboard";
 import { applyMermaidConfig } from "@/lib/mermaid";
 
 /**
@@ -49,7 +50,38 @@ export function PostContent({ html }: { html: string }) {
       }
     }
 
-    void renderMermaid();
+    function enhanceCopyButtons() {
+      const blocks = root.querySelectorAll("pre");
+      blocks.forEach((pre) => {
+        if (!(pre instanceof HTMLElement)) return;
+        if (pre.querySelector("code.language-mermaid")) return;
+        if (pre.closest(".code-block")) return;
+
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "code-copy print-hide";
+        button.textContent = "复制";
+        button.addEventListener("click", () => {
+          const code = pre.querySelector("code");
+          const source = (code?.textContent ?? pre.textContent ?? "").replace(/\n$/, "");
+          void copyText(source).then((ok) => {
+            button.textContent = ok ? "已复制" : "复制失败";
+            window.setTimeout(() => {
+              button.textContent = "复制";
+            }, 2000);
+          });
+        });
+        pre.parentNode?.insertBefore(wrap, pre);
+        wrap.appendChild(button);
+        wrap.appendChild(pre);
+      });
+    }
+
+    void renderMermaid().then(() => {
+      if (!cancelled) enhanceCopyButtons();
+    });
     return () => {
       cancelled = true;
     };

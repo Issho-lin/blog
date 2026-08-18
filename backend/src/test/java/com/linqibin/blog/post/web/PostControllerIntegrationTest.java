@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -260,6 +261,33 @@ class PostControllerIntegrationTest {
                 // 详情接口应返回 SEO 字段。
                 .andExpect(jsonPath("$.data.seoTitle").value("Read Me"))
                 .andExpect(jsonPath("$.data.canonicalUrl").value("/posts/read-me"));
+    }
+
+    @Test
+    void getPostBySlugIncludesPreviousAndNextNeighbors() throws Exception {
+        UUID oldestId = createDraft("Oldest Neighbor", "# a");
+        mockMvc.perform(post("/api/admin/posts/" + oldestId + "/publish")).andExpect(status().isOk());
+        UUID middleId = createDraft("Middle Neighbor", "# b");
+        mockMvc.perform(post("/api/admin/posts/" + middleId + "/publish")).andExpect(status().isOk());
+        UUID newestId = createDraft("Newest Neighbor", "# c");
+        mockMvc.perform(post("/api/admin/posts/" + newestId + "/publish")).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/public/posts/middle-neighbor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.previousPost.slug").value("oldest-neighbor"))
+                .andExpect(jsonPath("$.data.previousPost.title").value("Oldest Neighbor"))
+                .andExpect(jsonPath("$.data.nextPost.slug").value("newest-neighbor"))
+                .andExpect(jsonPath("$.data.nextPost.title").value("Newest Neighbor"));
+
+        mockMvc.perform(get("/api/public/posts/newest-neighbor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.previousPost.slug").value("middle-neighbor"))
+                .andExpect(jsonPath("$.data.nextPost").value(nullValue()));
+
+        mockMvc.perform(get("/api/public/posts/oldest-neighbor"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.previousPost").value(nullValue()))
+                .andExpect(jsonPath("$.data.nextPost.slug").value("middle-neighbor"));
     }
 
     @Test

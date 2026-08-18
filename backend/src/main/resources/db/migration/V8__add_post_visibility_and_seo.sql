@@ -1,0 +1,4 @@
+ALTER TABLE posts
+    ADD COLUMN visibility VARCHAR(20) NOT NULL DEFAULT 'PUBLIC',
+    ADD COLUMN seo_title VARCHAR(120),
+    ADD COLUMN seo_description VARCHAR(500);

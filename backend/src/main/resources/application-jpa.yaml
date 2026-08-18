@@ -17,3 +17,5 @@ blog:
     repository-type: jpa
   site:
     repository-type: jpa
+  comment:
+    repository-type: jpa

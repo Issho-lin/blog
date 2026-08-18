@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.linqibin.blog.markdown.MarkdownRenderResult;
 import com.linqibin.blog.markdown.MarkdownService;
+import com.linqibin.blog.post.application.AdjacentPublishedPosts;
 import com.linqibin.blog.post.domain.Post;
 import com.linqibin.blog.post.util.ReadingTimeEstimator;
 import com.linqibin.blog.post.util.SummaryGenerator;
@@ -33,12 +34,19 @@ public class PostDetailAssembler {
     }
 
     public PublicPostDetailResponse toPublicDetail(Post post, long viewCount) {
+        return toPublicDetail(post, viewCount, new AdjacentPublishedPosts(null, null));
+    }
+
+    public PublicPostDetailResponse toPublicDetail(Post post, long viewCount, AdjacentPublishedPosts adjacent) {
         MarkdownRenderResult renderResult = markdownService.renderWithTableOfContents(post.markdownContent());
         String summary = resolveSummary(post);
         String plainText = SummaryGenerator.stripMarkdown(post.markdownContent());
         int readingTime = ReadingTimeEstimator.estimate(plainText);
         Category category = resolveCategory(post.categoryId());
         List<Tag> tags = resolveTags(post.tagIds());
+        AdjacentPublishedPosts neighbors = adjacent == null
+                ? new AdjacentPublishedPosts(null, null)
+                : adjacent;
 
         return new PublicPostDetailResponse(
                 post.id(),
@@ -57,14 +65,27 @@ public class PostDetailAssembler {
                 category == null ? null : category.slug(),
                 tags.stream().map(Tag::name).toList(),
                 tags.stream().map(Tag::slug).toList(),
-                post.title(),
-                summary,
-                "/posts/" + post.slug()
+                post.seoTitle() != null ? post.seoTitle() : post.title(),
+                post.seoDescription() != null ? post.seoDescription() : summary,
+                "/posts/" + post.slug(),
+                toNeighbor(neighbors.previous()),
+                toNeighbor(neighbors.next())
         );
     }
 
     public AdminPostPreviewResponse toAdminPreview(Post post) {
-        return AdminPostPreviewResponse.from(post.status(), toPublicDetail(post, post.viewCount()));
+        return toAdminPreview(post, new AdjacentPublishedPosts(null, null));
+    }
+
+    public AdminPostPreviewResponse toAdminPreview(Post post, AdjacentPublishedPosts adjacent) {
+        return AdminPostPreviewResponse.from(post.status(), toPublicDetail(post, post.viewCount(), adjacent));
+    }
+
+    private static PublicPostNeighbor toNeighbor(Post post) {
+        if (post == null) {
+            return null;
+        }
+        return new PublicPostNeighbor(post.title(), post.slug());
     }
 
     private Category resolveCategory(UUID categoryId) {

@@ -43,6 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
+      data-scroll-behavior="smooth"
       className={`${notoSerif.variable} ${notoSans.variable} ${zhuanTi.variable} h-full`}
       suppressHydrationWarning
     >

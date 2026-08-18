@@ -27,6 +27,10 @@ public record UpdatePostRequest(
         String excerpt,
         // 不传表示保留原封面；传空字符串表示清除。
         @Size(max = 500, message = "封面地址不能超过 500 个字符")
-        String coverUrl
+        String coverUrl,
+        @Size(max = 120, message = "SEO 标题不能超过 120 个字符")
+        String seoTitle,
+        @Size(max = 500, message = "SEO 描述不能超过 500 个字符")
+        String seoDescription
 ) {
 }

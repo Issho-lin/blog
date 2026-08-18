@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.linqibin.blog.post.application.PostRevisionService;
 import com.linqibin.blog.post.application.PostService;
 import com.linqibin.blog.post.domain.Post;
 
@@ -27,10 +28,16 @@ public class AdminPostController {
     // 管理端控制器只依赖应用层，不直接碰仓库或领域细节。
     private final PostService postService;
     private final PostDetailAssembler postDetailAssembler;
+    private final PostRevisionService postRevisionService;
 
-    public AdminPostController(PostService postService, PostDetailAssembler postDetailAssembler) {
+    public AdminPostController(
+            PostService postService,
+            PostDetailAssembler postDetailAssembler,
+            PostRevisionService postRevisionService
+    ) {
         this.postService = postService;
         this.postDetailAssembler = postDetailAssembler;
+        this.postRevisionService = postRevisionService;
     }
 
     @PostMapping("/drafts")
@@ -51,7 +58,8 @@ public class AdminPostController {
     @GetMapping("/{postId}/preview")
     public AdminPostPreviewResponse preview(@PathVariable UUID postId) {
         // 用与公开页相同的渲染结果做预览，不改变状态、不增加阅读数。
-        return postDetailAssembler.toAdminPreview(postService.getPost(postId));
+        Post post = postService.getPost(postId);
+        return postDetailAssembler.toAdminPreview(post, postService.findAdjacentPublished(post.id()));
     }
 
     @GetMapping("/{postId}/save-status")
@@ -87,7 +95,8 @@ public class AdminPostController {
     public PostResponse updatePost(@PathVariable UUID postId, @Valid @RequestBody UpdatePostRequest request) {
         // 编辑接口允许修改文章内容；是否能改、改完状态是否保持不变，由应用层和领域层决定。
         Post updatedPost = postService.updatePost(postId, request.title(), request.markdownContent(), request.slug(),
-                request.categoryId(), request.tagIds(), request.expectedVersion(), request.excerpt(), request.coverUrl());
+                request.categoryId(), request.tagIds(), request.expectedVersion(), request.excerpt(), request.coverUrl(),
+                request.seoTitle(), request.seoDescription());
         return PostResponse.from(updatedPost);
     }
 
@@ -117,6 +126,25 @@ public class AdminPostController {
         // 恢复后的目标状态由领域对象自己决定，控制器只返回结果。
         Post restoredPost = postService.restoreFromTrash(postId);
         return PostResponse.from(restoredPost);
+    }
+
+    @GetMapping("/{postId}/revisions")
+    public List<PostRevisionSummaryResponse> listRevisions(@PathVariable UUID postId) {
+        postService.getPost(postId);
+        return postRevisionService.list(postId).stream()
+                .map(PostRevisionSummaryResponse::from)
+                .toList();
+    }
+
+    @GetMapping("/{postId}/revisions/{revisionId}")
+    public PostRevisionDetailResponse getRevision(@PathVariable UUID postId, @PathVariable UUID revisionId) {
+        postService.getPost(postId);
+        return PostRevisionDetailResponse.from(postRevisionService.get(postId, revisionId));
+    }
+
+    @PostMapping("/{postId}/revisions/{revisionId}/restore")
+    public PostResponse restoreRevision(@PathVariable UUID postId, @PathVariable UUID revisionId) {
+        return PostResponse.from(postService.restoreRevision(postId, revisionId));
     }
 
     @DeleteMapping("/{postId}")

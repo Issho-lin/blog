@@ -15,6 +15,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import com.linqibin.blog.auth.exception.InvalidCredentialsException;
+import com.linqibin.blog.auth.exception.InvalidResetTokenException;
+import com.linqibin.blog.auth.exception.WeakPasswordException;
+import com.linqibin.blog.comment.exception.CommentNotFoundException;
+import com.linqibin.blog.comment.exception.CommentRateLimitedException;
 import com.linqibin.blog.common.api.ApiResponse;
 import com.linqibin.blog.common.request.RequestIdUtils;
 import com.linqibin.blog.media.exception.InvalidFileException;
@@ -23,6 +27,7 @@ import com.linqibin.blog.post.exception.ConcurrentPostModificationException;
 import com.linqibin.blog.post.exception.DuplicateSlugException;
 import com.linqibin.blog.post.exception.InvalidPostStateTransitionException;
 import com.linqibin.blog.post.exception.PostNotFoundException;
+import com.linqibin.blog.post.exception.PostRevisionNotFoundException;
 import com.linqibin.blog.taxonomy.exception.CategoryNotFoundException;
 import com.linqibin.blog.taxonomy.exception.DuplicateTaxonomySlugException;
 import com.linqibin.blog.taxonomy.exception.TagNotFoundException;
@@ -53,6 +58,81 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 ApiResponse.error(
                         "POST_NOT_FOUND",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(PostRevisionNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRevisionNotFound(
+            PostRevisionNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.error(
+                        "REVISION_NOT_FOUND",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(CommentNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCommentNotFound(
+            CommentNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                ApiResponse.error(
+                        "COMMENT_NOT_FOUND",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(CommentRateLimitedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCommentRateLimited(
+            CommentRateLimitedException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(
+                ApiResponse.error(
+                        "COMMENT_RATE_LIMITED",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(InvalidResetTokenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidResetToken(
+            InvalidResetTokenException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.badRequest().body(
+                ApiResponse.error(
+                        "INVALID_RESET_TOKEN",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(WeakPasswordException.class)
+    public ResponseEntity<ApiResponse<Void>> handleWeakPassword(
+            WeakPasswordException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.badRequest().body(
+                ApiResponse.error(
+                        "WEAK_PASSWORD",
                         exception.getMessage(),
                         null,
                         RequestIdUtils.getRequestId(request)

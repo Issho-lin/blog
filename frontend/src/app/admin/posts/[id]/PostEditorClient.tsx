@@ -15,6 +15,7 @@ import { AdminButton } from "@/components/AdminButton";
 import { AdminConfirmDialog } from "@/components/AdminConfirmDialog";
 import { AdminInput, AdminTextarea, AdminTitleInput } from "@/components/AdminField";
 import { AdminSelect } from "@/components/AdminSelect";
+import { AdminUploadProgress } from "@/components/AdminUploadProgress";
 import { SealMark } from "@/components/SealMark";
 import { TaxonomyRow } from "@/components/TaxonomyMarks";
 import { ApiError } from "@/lib/api/client";
@@ -80,6 +81,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [editorReady, setEditorReady] = useState(false);
   const [resetToken, setResetToken] = useState(0);
@@ -97,6 +100,9 @@ export function AdminPostEditor({ postId }: { postId: string }) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [pendingBackup, setPendingBackup] = useState<EditorBackup | null>(null);
   const [serverPeek, setServerPeek] = useState<AdminPost | null>(null);
+  const [coverUploadPercent, setCoverUploadPercent] = useState<number | null>(null);
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
+  const lastCoverFileRef = useRef<File | null>(null);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const versionRef = useRef(0);
@@ -108,6 +114,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     markdown: "",
     excerpt: "",
     coverUrl: "",
+    seoTitle: "",
+    seoDescription: "",
     categoryId: "",
     tagIds: [] as string[],
   });
@@ -117,6 +125,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     setSlug(post.slug);
     setExcerpt(post.excerpt ?? "");
     setCoverUrl(post.coverUrl ?? "");
+    setSeoTitle(post.seoTitle ?? "");
+    setSeoDescription(post.seoDescription ?? "");
     setMarkdown(post.markdownContent ?? "");
     setCategoryId(post.categoryId ?? "");
     setTagIds(post.tagIds ?? []);
@@ -143,6 +153,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
       markdown: payload.markdown,
       excerpt: payload.excerpt,
       coverUrl: payload.coverUrl,
+      seoTitle: payload.seoTitle,
+      seoDescription: payload.seoDescription,
       categoryId: payload.categoryId,
       tagIds: payload.tagIds,
     });
@@ -153,6 +165,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     setSlug(backup.slug);
     setExcerpt(backup.excerpt);
     setCoverUrl(backup.coverUrl);
+    setSeoTitle(backup.seoTitle ?? "");
+    setSeoDescription(backup.seoDescription ?? "");
     setMarkdown(backup.markdown);
     setCategoryId(backup.categoryId);
     setTagIds(backup.tagIds);
@@ -220,10 +234,12 @@ export function AdminPostEditor({ postId }: { postId: string }) {
       markdown,
       excerpt,
       coverUrl,
+      seoTitle,
+      seoDescription,
       categoryId,
       tagIds,
     };
-  }, [title, slug, markdown, excerpt, coverUrl, categoryId, tagIds]);
+  }, [title, slug, markdown, excerpt, coverUrl, seoTitle, seoDescription, categoryId, tagIds]);
 
   const persist = useEffectEvent(async (manual = false, overwrite = false) => {
     if (savingRef.current) return;
@@ -256,6 +272,8 @@ export function AdminPostEditor({ postId }: { postId: string }) {
         expectedVersion,
         excerpt: payload.excerpt.trim(),
         coverUrl: payload.coverUrl.trim(),
+        seoTitle: payload.seoTitle.trim(),
+        seoDescription: payload.seoDescription.trim(),
       });
       versionRef.current = updated.version;
       setVersion(updated.version);
@@ -307,7 +325,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [title, slug, markdown, excerpt, coverUrl, categoryId, tagIds, loading, saveState, persist]);
+  }, [title, slug, markdown, excerpt, coverUrl, seoTitle, seoDescription, categoryId, tagIds, loading, saveState, persist]);
 
   useEffect(() => {
     function onBeforeUnload(event: BeforeUnloadEvent) {
@@ -338,12 +356,20 @@ export function AdminPostEditor({ postId }: { postId: string }) {
 
   async function onCoverFile(file: File | undefined) {
     if (!file) return;
+    lastCoverFileRef.current = file;
+    setCoverUploadError(null);
+    setCoverUploadPercent(0);
     setActing(true);
     try {
-      const uploaded = await uploadImage(file);
+      const uploaded = await uploadImage(file, {
+        onProgress: (percent) => setCoverUploadPercent(percent),
+      });
       markDirty();
       setCoverUrl(uploaded.url);
+      setCoverUploadPercent(null);
     } catch (err) {
+      setCoverUploadPercent(null);
+      setCoverUploadError(err instanceof ApiError ? err.message : "封面上传失败");
       setSaveState("error");
       setSaveMessage(err instanceof ApiError ? err.message : "封面上传失败");
     } finally {
@@ -539,11 +565,11 @@ export function AdminPostEditor({ postId }: { postId: string }) {
           </AdminButton>
           <AdminButton
             type="button"
-            disabled={acting || saveState === "saving"}
             onClick={() => void onPreview()}
           >
             预览
           </AdminButton>
+          <AdminButton href={`/admin/posts/${postId}/history`}>历史版本</AdminButton>
           <AdminButton
             type="button"
             disabled={acting}
@@ -821,7 +847,48 @@ export function AdminPostEditor({ postId }: { postId: string }) {
                   清除
                 </AdminButton>
               ) : null}
+              {coverUploadError && lastCoverFileRef.current ? (
+                <AdminButton
+                  type="button"
+                  onClick={() => void onCoverFile(lastCoverFileRef.current ?? undefined)}
+                >
+                  重试
+                </AdminButton>
+              ) : null}
             </div>
+            {coverUploadPercent !== null ? (
+              <AdminUploadProgress label="上传封面" percent={coverUploadPercent} />
+            ) : null}
+            {coverUploadError ? (
+              <p className="text-xs text-seal">{coverUploadError}</p>
+            ) : null}
+          </div>
+          <label className="block space-y-2 text-sm">
+            <span className="text-mist">SEO 标题 · 留空则用文章标题</span>
+            <AdminInput
+              value={seoTitle}
+              maxLength={120}
+              onChange={(event) => {
+                markDirty();
+                setSeoTitle(event.target.value);
+              }}
+              placeholder={title.trim() || "与标题相同"}
+            />
+            <p className="text-xs text-mist">{seoTitle.length}/120</p>
+          </label>
+          <div className="space-y-2 text-sm sm:col-span-2">
+            <span className="text-mist">SEO 描述 · 留空则用摘要</span>
+            <AdminTextarea
+              value={seoDescription}
+              maxLength={500}
+              onChange={(event) => {
+                markDirty();
+                setSeoDescription(event.target.value);
+              }}
+              rows={3}
+              placeholder="搜索引擎和社交分享用的描述"
+            />
+            <p className="text-xs text-mist">{seoDescription.length}/500</p>
           </div>
           <div className="space-y-2 text-sm sm:col-span-2">
             <span className="text-mist">标签 · 可盖多枚</span>

@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Vditor from "vditor";
 import "vditor/dist/index.css";
+import { AdminUploadProgress } from "@/components/AdminUploadProgress";
+import { uploadImage } from "@/lib/api/posts";
 import { installMermaidConfigPatch } from "@/lib/mermaid";
 
 type MarkdownEditorProps = {
@@ -15,35 +17,40 @@ type MarkdownEditorProps = {
   disabled?: boolean;
 };
 
-async function uploadToMediaApi(files: File[]) {
+type UploadUi = {
+  label: string;
+  percent: number;
+};
+
+async function uploadToMediaApi(
+  files: File[],
+  onProgress: (ui: UploadUi | null) => void
+) {
   const succMap: Record<string, string> = {};
   const errFiles: string[] = [];
 
-  for (const file of files) {
+  for (let index = 0; index < files.length; index++) {
+    const file = files[index];
+    onProgress({
+      label: `上传 ${file.name}（${index + 1}/${files.length}）`,
+      percent: 0,
+    });
     try {
-      const body = new FormData();
-      body.append("file", file);
-      const response = await fetch("/api/admin/media/images", {
-        method: "POST",
-        body,
-        credentials: "include",
+      const uploaded = await uploadImage(file, {
+        onProgress: (percent) =>
+          onProgress({
+            label: `上传 ${file.name}（${index + 1}/${files.length}）`,
+            percent,
+          }),
       });
-      const payload = (await response.json()) as {
-        code?: string;
-        message?: string;
-        data?: { url?: string; originalFilename?: string };
-      };
-      if (!response.ok || payload.code !== "OK" || !payload.data?.url) {
-        errFiles.push(file.name);
-        continue;
-      }
-      const name = payload.data.originalFilename || file.name;
-      succMap[name] = payload.data.url;
+      const name = uploaded.originalFilename || file.name;
+      succMap[name] = uploaded.url;
     } catch {
       errFiles.push(file.name);
     }
   }
 
+  onProgress(null);
   return { succMap, errFiles };
 }
 
@@ -75,6 +82,10 @@ export function MarkdownEditor({
   const initialRef = useRef(initialValue);
   const disabledRef = useRef(disabled);
   const pendingResetRef = useRef<number | null>(null);
+  const generationRef = useRef(0);
+  const [uploadUi, setUploadUi] = useState<UploadUi | null>(null);
+  const uploadUiRef = useRef<(ui: UploadUi | null) => void>(() => {});
+  uploadUiRef.current = setUploadUi;
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -100,6 +111,7 @@ export function MarkdownEditor({
 
     let disposed = false;
     const host = hostRef.current;
+    const generation = ++generationRef.current;
     // 避免 React Strict Mode 重复挂载时残留 DOM
     host.innerHTML = "";
     installMermaidConfigPatch();
@@ -180,7 +192,9 @@ export function MarkdownEditor({
         multiple: true,
         handler: async (files) => {
           const list = Array.from(files);
-          const { succMap, errFiles } = await uploadToMediaApi(list);
+          const { succMap, errFiles } = await uploadToMediaApi(list, (ui) =>
+            uploadUiRef.current(ui)
+          );
           const names = Object.keys(succMap);
           if (names.length > 0 && editorRef.current && readyRef.current) {
             const markdown = names
@@ -198,8 +212,9 @@ export function MarkdownEditor({
         onChangeRef.current(value);
       },
       after: () => {
-        if (disposed) {
-          safeDestroy(editor);
+        // Strict Mode 下第一次实例的 after 会晚于第二次挂载到达；
+        // 不能 destroy，否则会拆掉当前正在用的同一 host。
+        if (disposed || generation !== generationRef.current) {
           return;
         }
         readyRef.current = true;
@@ -218,6 +233,9 @@ export function MarkdownEditor({
 
     return () => {
       disposed = true;
+      if (generation !== generationRef.current) {
+        return;
+      }
       readyRef.current = false;
       editorRef.current = null;
       safeDestroy(editor);
@@ -233,7 +251,10 @@ export function MarkdownEditor({
   }, [resetToken]);
 
   return (
-    <div className="markdown-editor-shell">
+    <div className="markdown-editor-shell space-y-2">
+      {uploadUi ? (
+        <AdminUploadProgress label={uploadUi.label} percent={uploadUi.percent} />
+      ) : null}
       <div ref={hostRef} className="vditor-host" />
     </div>
   );

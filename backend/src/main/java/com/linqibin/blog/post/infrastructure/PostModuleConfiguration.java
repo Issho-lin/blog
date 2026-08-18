@@ -1,6 +1,7 @@
 package com.linqibin.blog.post.infrastructure;
 
 import java.time.Clock;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -9,15 +10,24 @@ import org.springframework.context.annotation.Configuration;
 
 import com.linqibin.blog.markdown.exporter.FrontMatterExporter;
 import com.linqibin.blog.markdown.parser.FrontMatterParser;
+import com.linqibin.blog.media.application.MediaService;
+import org.springframework.beans.factory.ObjectProvider;
+
+import com.linqibin.blog.comment.domain.CommentRepository;
 import com.linqibin.blog.post.application.PostImportExportService;
+import com.linqibin.blog.post.application.PostRevisionService;
 import com.linqibin.blog.post.application.PostService;
 import com.linqibin.blog.taxonomy.application.CategoryService;
 import com.linqibin.blog.taxonomy.application.TagService;
 import com.linqibin.blog.post.domain.PostRepository;
+import com.linqibin.blog.post.domain.PostRevisionRepository;
 import com.linqibin.blog.post.domain.SlugGenerator;
 import com.linqibin.blog.post.infrastructure.persistence.PostEntityMapper;
 import com.linqibin.blog.post.infrastructure.persistence.PostRepositoryAdapter;
+import com.linqibin.blog.post.infrastructure.persistence.PostRevisionEntityMapper;
+import com.linqibin.blog.post.infrastructure.persistence.PostRevisionRepositoryAdapter;
 import com.linqibin.blog.post.infrastructure.persistence.SpringDataPostRepository;
+import com.linqibin.blog.post.infrastructure.persistence.SpringDataPostRevisionRepository;
 
 // 统一注册 post 模块需要的 Spring Bean，方便 web 层直接注入使用。
 @Configuration
@@ -53,6 +63,32 @@ public class PostModuleConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            prefix = "blog.post",
+            name = "repository-type",
+            havingValue = "in-memory",
+            matchIfMissing = true
+    )
+    public InMemoryPostRevisionRepository inMemoryPostRevisionRepository() {
+        return new InMemoryPostRevisionRepository();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "blog.post", name = "repository-type", havingValue = "jpa")
+    public PostRevisionEntityMapper postRevisionEntityMapper() {
+        return new PostRevisionEntityMapper();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "blog.post", name = "repository-type", havingValue = "jpa")
+    public PostRevisionRepository jpaPostRevisionRepositoryAdapter(
+            SpringDataPostRevisionRepository springDataPostRevisionRepository,
+            PostRevisionEntityMapper postRevisionEntityMapper
+    ) {
+        return new PostRevisionRepositoryAdapter(springDataPostRevisionRepository, postRevisionEntityMapper);
+    }
+
+    @Bean
     public SlugGenerator slugGenerator() {
         // slug 规则是模块级通用能力，集中注册成 Bean 复用。
         return new SlugGenerator();
@@ -65,9 +101,28 @@ public class PostModuleConfiguration {
     }
 
     @Bean
-    public PostService postService(PostRepository postRepository, SlugGenerator slugGenerator, Clock clock) {
-        // PostService 依赖抽象仓库与 slug 规则，后续切数据库时这里只需要替换仓库实现。
-        return new PostService(postRepository, slugGenerator, clock);
+    public PostRevisionService postRevisionService(PostRevisionRepository postRevisionRepository, Clock clock) {
+        return new PostRevisionService(postRevisionRepository, clock);
+    }
+
+    @Bean
+    public PostService postService(
+            PostRepository postRepository,
+            SlugGenerator slugGenerator,
+            Clock clock,
+            MediaService mediaService,
+            PostRevisionService postRevisionService,
+            ObjectProvider<CommentRepository> commentRepository
+    ) {
+        return new PostService(
+                postRepository,
+                slugGenerator,
+                clock,
+                UUID::randomUUID,
+                mediaService,
+                postRevisionService,
+                commentRepository.getIfAvailable()
+        );
     }
 
     @Bean
@@ -78,11 +133,12 @@ public class PostModuleConfiguration {
             FrontMatterParser frontMatterParser,
             FrontMatterExporter frontMatterExporter,
             SlugGenerator slugGenerator,
+            MediaService mediaService,
             @Value("${blog.import.max-file-size:2097152}") long maxImportSize
     ) {
         return new PostImportExportService(
                 postService, categoryService, tagService,
-                frontMatterParser, frontMatterExporter, slugGenerator, maxImportSize
+                frontMatterParser, frontMatterExporter, slugGenerator, mediaService, maxImportSize
         );
     }
 }

@@ -58,6 +58,13 @@ export type PublicPostDetail = {
   seoTitle: string | null;
   seoDescription: string | null;
   canonicalUrl: string | null;
+  previousPost: PublicPostNeighbor | null;
+  nextPost: PublicPostNeighbor | null;
+};
+
+export type PublicPostNeighbor = {
+  title: string;
+  slug: string;
 };
 
 export type AuthUser = {
@@ -74,6 +81,8 @@ export type AdminPost = {
   slug: string;
   excerpt: string | null;
   coverUrl: string | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   markdownContent: string;
   status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "TRASHED";
   categoryId: string | null;
@@ -143,6 +152,8 @@ export type UpdatePostInput = {
   expectedVersion?: number | null;
   excerpt?: string | null;
   coverUrl?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 };
 
 export type BatchPostActionResult = {
@@ -178,4 +189,32 @@ export type ImportPostResult = {
   title: string;
   slug: string;
   status: string;
+  warnings?: string[];
 };
+
+export type PublicComment = {
+  id: string;
+  postId: string;
+  authorName: string;
+  content: string;
+  createdAt: string;
+};
+
+export type AdminComment = PublicComment & {
+  postTitle: string;
+  postSlug: string;
+};
+
+export type PostRevisionSummary = {
+  id: string;
+  title: string;
+  kind: "AUTO" | "PUBLISH" | "RESTORE";
+  createdAt: string;
+};
+
+export type PostRevisionDetail = PostRevisionSummary & {
+  postId: string;
+  markdownContent: string;
+  excerpt: string | null;
+};
+
