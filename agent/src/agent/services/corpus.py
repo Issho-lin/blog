@@ -26,13 +26,6 @@ def _async_database_url(database_url: str) -> str:
     return database_url
 
 
-def _safe_db_url(database_url: str) -> str:
-    from urllib.parse import urlparse
-
-    parsed = urlparse(database_url)
-    return f"{parsed.scheme}://{parsed.hostname}:{parsed.port}{parsed.path}"
-
-
 def ref_doc_id(project_id: str, doc_id: str) -> str:
     return f"{project_id}:{doc_id}"
 
@@ -84,14 +77,6 @@ class LlamaIndexCorpus:
         from llama_index.vector_stores.postgres import PGVectorStore
 
         async_url = _async_database_url(database_url)
-        # #region agent log
-        try:
-            import json, time
-            with open("/Users/linqibin/Documents/code/blog/.cursor/debug-b0a834.log", "a") as _f:
-                _f.write(json.dumps({"sessionId": "b0a834", "runId": "post-fix", "hypothesisId": "F", "location": "corpus.py:_build_index", "message": "pgvector urls", "data": {"syncUrl": _safe_db_url(database_url), "asyncUrl": _safe_db_url(async_url), "embedDim": embed_dim}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except Exception:
-            pass
-        # #endregion
         vector_store = PGVectorStore.from_params(
             connection_string=database_url,
             async_connection_string=async_url,

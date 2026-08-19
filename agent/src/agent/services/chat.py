@@ -27,24 +27,7 @@ class ChatService:
         citations: list[Citation] = []
         retrieved_block = ""
         if request.rag.enabled and question:
-            # #region agent log
-            try:
-                import json, time
-                _embed = request.embed
-                with open("/Users/linqibin/Documents/code/blog/.cursor/debug-b0a834.log", "a") as _f:
-                    _f.write(json.dumps({"sessionId": "b0a834", "runId": "pre-fix", "hypothesisId": "D", "location": "chat.py:chat", "message": "rag path before apply_embed", "data": {"rag": request.rag.enabled, "hasEmbed": _embed is not None, "embedModel": None if _embed is None else _embed.model, "embedBaseUrl": None if _embed is None else _embed.base_url, "embedDim": None if _embed is None else _embed.dimensions, "hasEmbedKey": False if _embed is None else bool(_embed.api_key.strip()), "questionLen": len(question)}, "timestamp": int(time.time() * 1000)}) + "\n")
-            except Exception:
-                pass
-            # #endregion
             self._corpus.apply_embed(request.embed, self._settings)
-            # #region agent log
-            try:
-                import json, time
-                with open("/Users/linqibin/Documents/code/blog/.cursor/debug-b0a834.log", "a") as _f:
-                    _f.write(json.dumps({"sessionId": "b0a834", "runId": "post-fix", "hypothesisId": "A", "location": "chat.py:after_apply_embed", "message": "apply_embed succeeded", "data": {"questionLen": len(question)}, "timestamp": int(time.time() * 1000)}) + "\n")
-            except Exception:
-                pass
-            # #endregion
             chunks = self._corpus.retrieve(
                 project_id=request.project_id,
                 corpus=request.rag.corpus,
@@ -52,14 +35,6 @@ class ChatService:
                 top_k=request.rag.top_k,
                 min_score=self._settings.rag_min_score,
             )
-            # #region agent log
-            try:
-                import json, time
-                with open("/Users/linqibin/Documents/code/blog/.cursor/debug-b0a834.log", "a") as _f:
-                    _f.write(json.dumps({"sessionId": "b0a834", "runId": "post-fix", "hypothesisId": "F", "location": "chat.py:after_retrieve", "message": "retrieve finished", "data": {"chunkCount": len(chunks)}, "timestamp": int(time.time() * 1000)}) + "\n")
-            except Exception:
-                pass
-            # #endregion
             if chunks:
                 retrieved_block = "\n\n".join(
                     f"[{item.title}]({item.metadata.get('url', '')})\n{item.text}"
