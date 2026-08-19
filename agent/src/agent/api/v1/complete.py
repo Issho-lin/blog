@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
-from agent.schemas.complete import CompleteRequest
+from agent.exceptions import LlmNotConfiguredError
+from agent.schemas.complete import CompleteRequest, CompleteResponse
 
 router = APIRouter()
 
 
-@router.post("/complete")
-def complete(_body: CompleteRequest) -> None:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="llm complete is not wired yet",
-    )
+@router.post("/complete", response_model=CompleteResponse)
+def complete(body: CompleteRequest, request: Request) -> CompleteResponse:
+    try:
+        return request.app.state.services.complete.complete(body)
+    except LlmNotConfiguredError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error

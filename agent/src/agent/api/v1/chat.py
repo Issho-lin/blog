@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
-from agent.schemas.chat import ChatRequest
+from agent.exceptions import LlmNotConfiguredError
+from agent.schemas.chat import ChatRequest, ChatResponse
 
 router = APIRouter()
 
 
-@router.post("/chat")
-def chat(_body: ChatRequest) -> None:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="chat and rag are not wired yet",
-    )
+@router.post("/chat", response_model=ChatResponse)
+def chat(body: ChatRequest, request: Request) -> ChatResponse:
+    try:
+        return request.app.state.services.chat.chat(body)
+    except LlmNotConfiguredError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
