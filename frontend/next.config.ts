@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: workspaceRoot,
   },
+  // 帮写/摘要会等模型几十秒；rewrite 默认 30s 会把 Java 连接掐掉（ECONNRESET）。
+  experimental: {
+    proxyTimeout: 120_000,
+  },
   // afterFiles：让 app/api 下的流式 Route Handler 优先生效，避免 rewrite 把 SSE 攒成一次响应。
   async rewrites() {
     const apiOrigin = process.env.API_PROXY_ORIGIN ?? "http://localhost:8080";

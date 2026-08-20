@@ -67,6 +67,18 @@ export function AdminSelect({
                 className="admin-select-item"
               >
                 <Select.ItemText>{option.label}</Select.ItemText>
+                <Select.ItemIndicator className="admin-select-check" aria-hidden>
+                  <svg viewBox="0 0 12 12" width="12" height="12">
+                    <path
+                      d="M2 6.2 4.8 9 10 3.2"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </Select.ItemIndicator>
               </Select.Item>
             ))}
           </Select.Viewport>

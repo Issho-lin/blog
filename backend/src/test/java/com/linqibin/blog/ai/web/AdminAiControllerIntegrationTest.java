@@ -48,6 +48,20 @@ class AdminAiControllerIntegrationTest {
     }
 
     @Test
+    void taxonomyWhenAiDisabledReturnsUnavailable() throws Exception {
+        mockMvc.perform(post("/api/admin/ai/taxonomy")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "标题",
+                                  "markdown": "正文"
+                                }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("AGENT_UNAVAILABLE"));
+    }
+
+    @Test
     void updateSettingsMasksApiKey() throws Exception {
         mockMvc.perform(put("/api/admin/ai/settings")
                         .contentType(MediaType.APPLICATION_JSON)

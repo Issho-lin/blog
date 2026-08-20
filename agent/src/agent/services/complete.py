@@ -36,7 +36,27 @@ class CompleteService:
                 ),
                 HumanMessage(content=request.text.strip() or "（空正文）"),
             ]
+        if request.scenario == "taxonomy":
+            return [
+                SystemMessage(
+                    content=(
+                        "你是中文博客编辑。只输出一行 JSON，不要 Markdown 代码围栏，不要解释。"
+                        '格式严格为：{"category":"分类名","tags":["标签1","标签2"]}'
+                        "一篇文章只能有一个分类，标签 1 到 5 个。"
+                        "优先从用户给出的已有分类、已有标签里原样选用；没有合适的再起简短新名字。"
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        f"{request.instruction}\n\n"
+                        f"标题：{request.context or '（无标题）'}\n\n"
+                        f"正文：\n{request.text.strip() or '（空正文）'}"
+                    )
+                ),
+            ]
+        return self._write_messages(request)
 
+    def _write_messages(self, request: CompleteRequest) -> list[SystemMessage | HumanMessage]:
         mode = (request.mode or "continue").strip().lower()
         if mode == "titles":
             return [
@@ -45,7 +65,7 @@ class CompleteService:
                 ),
                 HumanMessage(content=f"正文：\n{request.text}"),
             ]
-        if mode in {"rewrite", "expand"}:
+        if mode == "rewrite":
             return [
                 SystemMessage(content="你是中文写作助手。只输出改写后的 Markdown，不要解释。"),
                 HumanMessage(
@@ -55,6 +75,17 @@ class CompleteService:
                         f"用户指令：{request.instruction or '润色这段文字'}"
                     )
                 ),
+            ]
+        if mode == "draft":
+            topic = request.instruction.strip() or request.text.strip() or "请写一篇完整的中文技术博客"
+            return [
+                SystemMessage(
+                    content=(
+                        "你是中文写作助手。根据用户的题目或要求，从零写一篇完整 Markdown 正文。"
+                        "不要解释、不要前言后记。"
+                    )
+                ),
+                HumanMessage(content=f"写作要求：\n{topic}"),
             ]
         if mode == "outline":
             return [

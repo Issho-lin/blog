@@ -19,6 +19,24 @@ def test_complete_summarize_returns_model_text(
     assert response.json()["text"] == "模型输出"
 
 
+def test_complete_taxonomy_returns_model_text(
+    client: TestClient,
+    api_headers: dict[str, str],
+) -> None:
+    response = client.post(
+        "/v1/complete",
+        json={
+            "scenario": "taxonomy",
+            "text": "一篇讲 Spring Boot 的文章",
+            "instruction": "已有分类：工程实践\n已有标签：Java",
+            "context": "Spring Boot 入门",
+        },
+        headers=api_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["text"] == "模型输出"
+
+
 def test_complete_without_llm_returns_unavailable(api_headers: dict[str, str]) -> None:
     services = build_services(
         settings=Settings(embed_dimensions=8),

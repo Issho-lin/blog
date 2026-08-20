@@ -262,7 +262,7 @@ export function SiteAssistant() {
       ) : null}
       <button
         type="button"
-        className={`site-assistant-launch${open ? " is-open" : ""}`}
+        className="site-assistant-launch"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-label={open ? "收起问文章助手" : "打开问文章助手"}
@@ -282,9 +282,6 @@ export function SiteAssistant() {
             />
           </svg>
           <span className="site-assistant-launch-glyph">问</span>
-        </span>
-        <span className="site-assistant-launch-plaque" aria-hidden="true">
-          问文章
         </span>
       </button>
     </div>

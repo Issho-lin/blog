@@ -6,7 +6,7 @@ from agent.schemas.llm import LlmOptions
 
 
 class CompleteRequest(BaseModel):
-    scenario: Literal["summarize", "write", "chat"]
+    scenario: Literal["summarize", "write", "chat", "taxonomy"]
     instruction: str = ""
     text: str = ""
     context: str = ""

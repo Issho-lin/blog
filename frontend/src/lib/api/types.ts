@@ -156,8 +156,11 @@ export type UpdatePostInput = {
   seoDescription?: string | null;
 };
 
-export type AiTextResult = {
-  text: string;
+export type AiTaxonomyResult = {
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryCreated: boolean;
+  tags: Array<{ id: string; name: string; created: boolean }>;
 };
 
 export type AiSettings = {

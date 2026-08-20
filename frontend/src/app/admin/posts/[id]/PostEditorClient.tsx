@@ -31,6 +31,7 @@ import {
   updatePost,
   uploadImage,
   summarizeWithAi,
+  suggestTaxonomyWithAi,
   writeWithAi,
 } from "@/lib/api/posts";
 import type { AdminPost, Category, Tag } from "@/lib/api/types";
@@ -110,8 +111,11 @@ export function AdminPostEditor({ postId }: { postId: string }) {
   const [writeInstruction, setWriteInstruction] = useState("");
   const [writePreview, setWritePreview] = useState("");
   const [writeBusy, setWriteBusy] = useState(false);
+  const [taxonomyBusy, setTaxonomyBusy] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const lastCoverFileRef = useRef<File | null>(null);
+  const tagPickerRef = useRef<HTMLDivElement>(null);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
   const versionRef = useRef(0);
@@ -356,12 +360,34 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     };
   }, [saveState, persist]);
 
-  function toggleTag(id: string) {
+  function addTag(id: string) {
+    if (!id) return;
     markDirty();
-    setTagIds((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
+    setTagIds((current) => (current.includes(id) ? current : [...current, id]));
   }
+
+  function removeTag(id: string) {
+    markDirty();
+    setTagIds((current) => current.filter((item) => item !== id));
+  }
+
+  useEffect(() => {
+    if (!tagPickerOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!tagPickerRef.current?.contains(event.target as Node)) {
+        setTagPickerOpen(false);
+      }
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setTagPickerOpen(false);
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [tagPickerOpen]);
 
   async function onSummarize() {
     setAiError(null);
@@ -378,13 +404,36 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     }
   }
 
+  async function onSuggestTaxonomy() {
+    setAiError(null);
+    setTaxonomyBusy(true);
+    try {
+      const result = await suggestTaxonomyWithAi(title, markdown);
+      const [categoryList, tagList] = await Promise.all([listCategories(), listTags()]);
+      setCategories(categoryList);
+      setTags(tagList);
+      markDirty();
+      if (result.categoryId) {
+        setCategoryId(result.categoryId);
+      }
+      setTagIds(result.tags.map((item) => item.id));
+    } catch (err) {
+      setAiError(err instanceof ApiError ? err.message : "AI 分类打标失败");
+    } finally {
+      setTaxonomyBusy(false);
+    }
+  }
+
   async function onWrite() {
     setAiError(null);
     setWriteBusy(true);
     try {
       const result = await writeWithAi({
-        markdown,
-        instruction: writeInstruction,
+        markdown: writeMode === "draft" ? "" : markdown,
+        instruction:
+          writeMode === "draft" && !writeInstruction.trim()
+            ? title.trim()
+            : writeInstruction,
         mode: writeMode,
       });
       setWritePreview(result.text);
@@ -406,7 +455,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
       if (firstLine) {
         setTitle(firstLine);
       }
-    } else if (writeMode === "rewrite" || writeMode === "expand") {
+    } else if (writeMode === "rewrite" || writeMode === "draft") {
       setMarkdown(writePreview);
       setResetToken((token) => token + 1);
     } else {
@@ -577,6 +626,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
   }
 
   const stats = useMemo(() => readingStatsFromMarkdown(markdown), [markdown]);
+  const remainingTags = tags.filter((tag) => !tagIds.includes(tag.id));
 
   if (loading) {
     return (
@@ -702,36 +752,45 @@ export function AdminPostEditor({ postId }: { postId: string }) {
 
       {writeOpen ? (
         <div className="mb-4 space-y-3 rounded-xl border border-line bg-white/80 p-4">
-          <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
-            <label className="block space-y-2 text-sm">
-              <span className="text-mist">模式</span>
-              <AdminSelect
-                value={writeMode}
-                onValueChange={setWriteMode}
-                options={[
-                  { value: "continue", label: "续写" },
-                  { value: "rewrite", label: "润色" },
-                  { value: "expand", label: "扩写" },
-                  { value: "outline", label: "按大纲写" },
-                  { value: "titles", label: "标题建议" },
-                ]}
-              />
-            </label>
-            <label className="block space-y-2 text-sm">
-              <span className="text-mist">指令（可选）</span>
-              <AdminTextarea
-                value={writeInstruction}
-                onChange={(event) => setWriteInstruction(event.target.value)}
-                rows={2}
-                placeholder="例如：补充一节关于部署的说明"
-              />
-            </label>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="text-sm text-mist">模式</span>
+            <AdminSelect
+              aria-label="帮写模式"
+              value={writeMode}
+              onValueChange={setWriteMode}
+              className="min-w-[11.5rem]"
+              options={[
+                { value: "draft", label: "从零写" },
+                { value: "continue", label: "续写" },
+                { value: "rewrite", label: "润色" },
+                { value: "outline", label: "按大纲写" },
+                { value: "titles", label: "标题建议" },
+              ]}
+            />
           </div>
+          <label className="block space-y-2 text-sm">
+            <span className="mb-2 inline-block text-mist">指令（可选）</span>
+            <AdminTextarea
+              value={writeInstruction}
+              onChange={(event) => setWriteInstruction(event.target.value)}
+              rows={2}
+              placeholder={
+                writeMode === "draft"
+                  ? "例如：写一篇介绍本仓库架构的文章（也可只用上方标题）"
+                  : "例如：补充一节关于部署的说明"
+              }
+            />
+          </label>
           <div className="flex flex-wrap gap-2">
             <AdminButton
               type="button"
               variant="primary"
-              disabled={writeBusy || (!markdown.trim() && writeMode !== "outline")}
+              disabled={
+                writeBusy ||
+                (writeMode === "draft"
+                  ? !writeInstruction.trim() && !title.trim()
+                  : !markdown.trim() && writeMode !== "outline")
+              }
               onClick={() => void onWrite()}
             >
               {writeBusy ? "生成中…" : "生成"}
@@ -739,7 +798,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             {writePreview ? (
               <>
                 <AdminButton type="button" variant="soft" onClick={applyWritePreview}>
-                  {writeMode === "titles" ? "用作标题" : "插入正文"}
+                  {writeMode === "titles" ? "用作标题" : writeMode === "draft" ? "替换正文" : "插入正文"}
                 </AdminButton>
                 <AdminButton
                   type="button"
@@ -893,7 +952,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
       {metaOpen ? (
         <div className="mb-5 grid gap-4 rounded-xl border border-line bg-white/70 p-4 sm:grid-cols-2">
           <label className="block space-y-2 text-sm">
-            <span className="text-mist">Slug（可空，保存时按标题生成）</span>
+            <span className="mb-2 inline-block text-mist">Slug（可空，保存时按标题生成）</span>
             <AdminInput
               value={slug}
               onChange={(event) => {
@@ -904,7 +963,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             />
           </label>
           <label className="block space-y-2 text-sm">
-            <span className="text-mist">分类 · 一卷一篇</span>
+            <span className="mb-2 inline-block text-mist">分类 · 一卷一篇</span>
             <AdminSelect
               value={categoryId}
               onValueChange={(next) => {
@@ -922,7 +981,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             />
           </label>
           <div className="space-y-2 text-sm sm:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <span className="text-mist">摘要 · 用于首页卡片和 SEO，留空则截取正文</span>
               <AdminButton
                 type="button"
@@ -945,7 +1004,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             <p className="text-xs text-mist">{excerpt.length}/500</p>
           </div>
           <div className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-mist">封面 · 支持上传或填写图片 URL</span>
+            <span className="mb-2 inline-block text-mist">封面 · 支持上传或填写图片 URL</span>
             {coverUrl ? (
               <div className="overflow-hidden rounded-xl border border-line bg-paper">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1008,7 +1067,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             ) : null}
           </div>
           <label className="block space-y-2 text-sm">
-            <span className="text-mist">SEO 标题 · 留空则用文章标题</span>
+            <span className="mb-2 inline-block text-mist">SEO 标题 · 留空则用文章标题</span>
             <AdminInput
               value={seoTitle}
               maxLength={120}
@@ -1021,7 +1080,7 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             <p className="text-xs text-mist">{seoTitle.length}/120</p>
           </label>
           <div className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-mist">SEO 描述 · 留空则用摘要</span>
+            <span className="mb-2 inline-block text-mist">SEO 描述 · 留空则用摘要</span>
             <AdminTextarea
               value={seoDescription}
               maxLength={500}
@@ -1035,29 +1094,67 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             <p className="text-xs text-mist">{seoDescription.length}/500</p>
           </div>
           <div className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-mist">标签 · 可盖多枚</span>
-            <div className="flex min-h-11 flex-wrap gap-2 rounded-xl border border-line bg-paper px-3 py-2">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-mist">标签 · 可盖多枚</span>
+              <AdminButton
+                type="button"
+                disabled={taxonomyBusy || (!markdown.trim() && !title.trim())}
+                onClick={() => void onSuggestTaxonomy()}
+              >
+                {taxonomyBusy ? "识别中…" : "AI 分类打标"}
+              </AdminButton>
+            </div>
+            <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-xl border border-line bg-paper px-3 py-2">
+              {tagIds.map((id) => {
+                const tag = tags.find((item) => item.id === id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-full border border-gold/50 bg-white py-1 pl-3 pr-1.5 text-sm text-ink"
+                  >
+                    #{tag?.name ?? id}
+                    <button
+                      type="button"
+                      aria-label={`移除标签 ${tag?.name ?? id}`}
+                      onClick={() => removeTag(id)}
+                      className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-mist hover:bg-paper hover:text-seal"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
               {tags.length === 0 ? (
                 <span className="text-mist">暂无标签，请先到「分类标签」里新建</span>
-              ) : (
-                tags.map((tag) => {
-                  const active = tagIds.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleTag(tag.id)}
-                      className={`cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors ${
-                        active
-                          ? "border-gold/50 bg-white text-ink"
-                          : "border-line bg-white text-mist hover:text-ink"
-                      }`}
-                    >
-                      #{tag.name}
-                    </button>
-                  );
-                })
-              )}
+              ) : remainingTags.length > 0 ? (
+                <div className="relative" ref={tagPickerRef}>
+                  <button
+                    type="button"
+                    aria-label="添加标签"
+                    aria-expanded={tagPickerOpen}
+                    onClick={() => setTagPickerOpen((open) => !open)}
+                    className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-dashed border-line bg-white text-lg leading-none text-mist hover:border-gold/50 hover:text-ink"
+                  >
+                    +
+                  </button>
+                  {tagPickerOpen ? (
+                    <div className="admin-select-content absolute left-0 top-[calc(100%+6px)] w-max min-w-0">
+                      <div className="admin-select-viewport max-h-60 overflow-y-auto">
+                        {remainingTags.map((tag) => (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            className="admin-select-item w-full whitespace-nowrap text-left hover:bg-seal-soft hover:text-seal"
+                            onClick={() => addTag(tag.id)}
+                          >
+                            #{tag.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

@@ -20,6 +20,7 @@ import type {
   PostRevisionSummary,
   PostRevisionDetail,
   AiTextResult,
+  AiTaxonomyResult,
   AiSettings,
   PublicAiStatus,
   PublicAiChatResult,
@@ -159,6 +160,13 @@ export function writeWithAi(input: {
   return apiRequest<AiTextResult>("/api/admin/ai/write", {
     method: "POST",
     body: input,
+  });
+}
+
+export function suggestTaxonomyWithAi(title: string, markdown: string) {
+  return apiRequest<AiTaxonomyResult>("/api/admin/ai/taxonomy", {
+    method: "POST",
+    body: { title, markdown },
   });
 }
 
