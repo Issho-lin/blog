@@ -27,6 +27,8 @@ def build_chat_model_from(base_url: str, api_key: str, model: str) -> BaseChatMo
         api_key=api_key,
         temperature=0.4,
         base_url=resolved_base,
+        streaming=True,
+        stream_usage=False,
     )
 
 

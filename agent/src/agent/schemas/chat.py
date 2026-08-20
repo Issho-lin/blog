@@ -25,6 +25,7 @@ class ChatRequest(BaseModel):
     system_prompt: str = ""
     llm: LlmOptions | None = None
     embed: EmbedOptions | None = None
+    stream: bool = False
 
 
 class Citation(BaseModel):

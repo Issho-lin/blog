@@ -77,8 +77,26 @@ def test_chat_with_rag_returns_citations(
     assert response.status_code == 200
     body = response.json()
     assert body["text"] == "模型输出"
-    assert body["citations"][0]["doc_id"] == "post-1"
-    assert body["citations"][0]["metadata"]["url"] == "/posts/vector-search"
+    matched = next(item for item in body["citations"] if item["doc_id"] == "post-1")
+    assert matched["metadata"]["url"] == "/posts/vector-search"
+
+
+def test_chat_stream_emits_sse_events(
+    client: TestClient,
+    api_headers: dict[str, str],
+) -> None:
+    response = client.post(
+        "/v1/chat",
+        json={"messages": [{"role": "user", "content": "你好"}], "stream": True},
+        headers=api_headers,
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    body = response.text
+    assert "event: meta" in body
+    assert "event: delta" in body
+    assert "event: done" in body
+    assert all(piece in body for piece in "模型输出")
 
 
 def test_upsert_accepts_embed_options(

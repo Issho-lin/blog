@@ -1,3 +1,8 @@
+import json
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Any
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -5,6 +10,14 @@ from agent.config import Settings
 from agent.schemas.chat import ChatMessage, ChatRequest, ChatResponse, Citation
 from agent.services.corpus import LlamaIndexCorpus
 from agent.services.models import resolve_chat_model
+
+
+@dataclass
+class _PreparedChat:
+    model: BaseChatModel
+    messages: list[SystemMessage | HumanMessage | AIMessage]
+    citations: list[Citation]
+    session_id: str | None
 
 
 class ChatService:
@@ -21,6 +34,34 @@ class ChatService:
         self._settings = settings
 
     def chat(self, request: ChatRequest) -> ChatResponse:
+        prepared = self._prepare(request)
+        result = prepared.model.invoke(prepared.messages)
+        text = _chunk_text(result)
+        return ChatResponse(
+            session_id=prepared.session_id,
+            text=text.strip(),
+            citations=prepared.citations,
+        )
+
+    def stream(self, request: ChatRequest) -> Iterator[str]:
+        try:
+            prepared = self._prepare(request)
+            yield _sse(
+                "meta",
+                {
+                    "session_id": prepared.session_id,
+                    "citations": [item.model_dump() for item in prepared.citations],
+                },
+            )
+            for chunk in prepared.model.stream(prepared.messages):
+                text = _chunk_text(chunk)
+                if text:
+                    yield _sse("delta", {"text": text})
+            yield _sse("done", {})
+        except Exception as error:
+            yield _sse("error", {"message": str(error)})
+
+    def _prepare(self, request: ChatRequest) -> _PreparedChat:
         model = resolve_chat_model(self._chat_model, request.llm, self._settings)
 
         question = _last_user_text(request.messages)
@@ -46,7 +87,11 @@ class ChatService:
                 ]
 
         system = SystemMessage(
-            content=_system_prompt(bool(retrieved_block), request.rag.enabled, request.system_prompt)
+            content=_system_prompt(
+                bool(retrieved_block),
+                request.rag.enabled,
+                request.system_prompt,
+            )
         )
         lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [system]
         if retrieved_block:
@@ -59,9 +104,31 @@ class ChatService:
             else:
                 lc_messages.append(SystemMessage(content=message.content))
 
-        result = model.invoke(lc_messages)
-        text = result.content if isinstance(result.content, str) else str(result.content)
-        return ChatResponse(session_id=request.session_id, text=text.strip(), citations=citations)
+        return _PreparedChat(
+            model=model,
+            messages=lc_messages,
+            citations=citations,
+            session_id=request.session_id,
+        )
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _chunk_text(chunk: object) -> str:
+    content = getattr(chunk, "content", chunk)
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict) and item.get("type") == "text":
+                parts.append(str(item.get("text") or ""))
+        return "".join(parts)
+    return "" if content is None else str(content)
 
 
 def _last_user_text(messages: list[ChatMessage]) -> str:
