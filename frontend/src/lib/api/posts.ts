@@ -1,4 +1,4 @@
-import { apiRequest, apiUpload, downloadFile } from "./client";
+import { ApiError, apiRequest, apiUpload, downloadFile } from "./client";
 import type {
   AdminPost,
   ArchiveGroup,
@@ -19,6 +19,10 @@ import type {
   AdminComment,
   PostRevisionSummary,
   PostRevisionDetail,
+  AiTextResult,
+  AiSettings,
+  PublicAiStatus,
+  PublicAiChatResult,
 } from "./types";
 
 export function listPublishedPosts(
@@ -138,6 +142,140 @@ export function updatePost(postId: string, input: UpdatePostInput) {
     method: "PUT",
     body: input,
   });
+}
+
+export function summarizeWithAi(markdown: string) {
+  return apiRequest<AiTextResult>("/api/admin/ai/summarize", {
+    method: "POST",
+    body: { markdown },
+  });
+}
+
+export function writeWithAi(input: {
+  markdown: string;
+  instruction?: string;
+  mode?: string;
+}) {
+  return apiRequest<AiTextResult>("/api/admin/ai/write", {
+    method: "POST",
+    body: input,
+  });
+}
+
+export function getAdminAiSettings() {
+  return apiRequest<AiSettings>("/api/admin/ai/settings");
+}
+
+export function updateAdminAiSettings(
+  payload: Omit<AiSettings, "chatApiKeyConfigured" | "embedApiKeyConfigured" | "updatedAt"> & {
+    chatApiKey?: string;
+    embedApiKey?: string;
+  }
+) {
+  return apiRequest<AiSettings>("/api/admin/ai/settings", {
+    method: "PUT",
+    body: payload,
+  });
+}
+
+export function rebuildAiIndex() {
+  return apiRequest<{ indexed: number }>("/api/admin/ai/index/rebuild", {
+    method: "POST",
+  });
+}
+
+export function getPublicAiStatus() {
+  return apiRequest<PublicAiStatus>("/api/public/ai/status");
+}
+
+export function chatWithPublicAi(
+  sessionId: string,
+  messages: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  return apiRequest<PublicAiChatResult>("/api/public/ai/chat", {
+    method: "POST",
+    body: { sessionId, messages },
+  });
+}
+
+export async function streamPublicAiChat(
+  sessionId: string,
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  onEvent: (event: "meta" | "delta" | "done" | "error", data: Record<string, unknown>) => void
+) {
+  const configured = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+  const baseUrl =
+    configured?.replace(/\/$/, "") ??
+    (typeof window === "undefined"
+      ? (process.env.API_PROXY_ORIGIN?.replace(/\/$/, "") ?? "http://localhost:8080")
+      : "");
+  const response = await fetch(`${baseUrl}/api/public/ai/chat/stream`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream, application/json" },
+    body: JSON.stringify({ sessionId, messages }),
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!response.ok || !contentType.includes("text/event-stream")) {
+    const rawText = await response.text();
+    try {
+      const payload = JSON.parse(rawText) as { code?: string; message?: string };
+      throw new ApiError(
+        payload.code ?? "HTTP_ERROR",
+        payload.message ?? `请求失败 (${response.status})`,
+        response.status
+      );
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError("HTTP_ERROR", `请求失败 (${response.status})`, response.status);
+    }
+  }
+  if (!response.body) {
+    throw new ApiError("HTTP_ERROR", "AI 服务未返回内容", response.status);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() ?? "";
+    for (const block of blocks) {
+      const parsed = parseSseBlock(block);
+      if (parsed) onEvent(parsed.event, parsed.data);
+    }
+  }
+  if (buffer.trim()) {
+    const parsed = parseSseBlock(buffer);
+    if (parsed) onEvent(parsed.event, parsed.data);
+  }
+}
+
+function parseSseBlock(block: string): { event: "meta" | "delta" | "done" | "error"; data: Record<string, unknown> } | null {
+  let event = "delta";
+  const dataLines: string[] = [];
+  for (const line of block.split("\n")) {
+    if (line.startsWith("event:")) {
+      event = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+  if (event !== "meta" && event !== "delta" && event !== "done" && event !== "error") {
+    return null;
+  }
+  if (dataLines.length === 0) {
+    return { event, data: {} };
+  }
+  try {
+    const data = JSON.parse(dataLines.join("\n")) as Record<string, unknown>;
+    return { event, data };
+  } catch {
+    return { event, data: { text: dataLines.join("\n") } };
+  }
 }
 
 export function uploadImage(

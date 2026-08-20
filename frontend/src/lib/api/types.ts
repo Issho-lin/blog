@@ -156,6 +156,41 @@ export type UpdatePostInput = {
   seoDescription?: string | null;
 };
 
+export type AiTextResult = {
+  text: string;
+};
+
+export type AiSettings = {
+  enabled: boolean;
+  assistantEnabled: boolean;
+  chatBaseUrl: string;
+  chatApiKeyConfigured: boolean;
+  chatModel: string;
+  embedBaseUrl: string;
+  embedApiKeyConfigured: boolean;
+  embedModel: string;
+  embedDimensions: number;
+  assistantPersona: string;
+  ratePerMinute: number;
+  ratePerDay: number;
+  updatedAt: string | null;
+};
+
+export type PublicAiStatus = {
+  assistantEnabled: boolean;
+};
+
+export type PublicAiCitation = {
+  title: string;
+  url: string;
+};
+
+export type PublicAiChatResult = {
+  sessionId: string;
+  text: string;
+  citations: PublicAiCitation[];
+};
+
 export type BatchPostActionResult = {
   succeeded: AdminPost[];
   failed: { id: string; message: string }[];

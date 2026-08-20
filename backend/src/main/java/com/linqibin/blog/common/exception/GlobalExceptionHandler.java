@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 
+import com.linqibin.blog.ai.exception.AgentUnavailableException;
+import com.linqibin.blog.ai.exception.AiRateLimitedException;
 import com.linqibin.blog.auth.exception.InvalidCredentialsException;
 import com.linqibin.blog.auth.exception.InvalidResetTokenException;
 import com.linqibin.blog.auth.exception.WeakPasswordException;
@@ -43,6 +45,36 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 ApiResponse.error(
                         "INVALID_CREDENTIALS",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(AgentUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAgentUnavailable(
+            AgentUnavailableException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
+                ApiResponse.error(
+                        "AGENT_UNAVAILABLE",
+                        exception.getMessage(),
+                        null,
+                        RequestIdUtils.getRequestId(request)
+                )
+        );
+    }
+
+    @ExceptionHandler(AiRateLimitedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiRateLimited(
+            AiRateLimitedException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(
+                ApiResponse.error(
+                        "AI_RATE_LIMITED",
                         exception.getMessage(),
                         null,
                         RequestIdUtils.getRequestId(request)

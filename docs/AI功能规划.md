@@ -97,8 +97,9 @@ AI 本身做成独立 Python 服务（`agent/`），以后可以接到别的项�
 | Session 登录、公开限流 | `X-API-Key` 服务间鉴权 |
 | 发布/下线时同步文档 | 收文档、切片、存向量 |
 | 把 `Post` 翻成通用 Document | 补全、对话、RAG |
+| 后台保存模型 URL/Key/名称，随请求传给 agent | 请求体 `llm` 可覆盖默认模型 |
 | 把引用链接交给前端 | 不拼接博客 URL |
-| SSE 转给浏览器 | 后续提供流式输出 |
+| SSE 转给浏览器 | `POST /v1/chat` 可选 `stream` |
 
 博客侧 `projectId = blog`，`corpus = published`。别的项目换自己的 projectId 即可。
 
@@ -114,10 +115,22 @@ PUT    /v1/projects/{projectId}/documents/{docId}
 GET    /v1/projects/{projectId}/documents/{docId}
 DELETE /v1/projects/{projectId}/documents/{docId}
 POST   /v1/complete          # summarize | write | chat
-POST   /v1/chat              # 可开 rag.corpus
+POST   /v1/chat              # stream=true 时返回 SSE（meta / delta / done）
+
+# 博客 Java 转发（需登录）
+GET    /api/admin/ai/settings
+PUT    /api/admin/ai/settings   # 对话模型 / 密钥；保存后立刻生效，密钥不回显
+POST   /api/admin/ai/summarize
+POST   /api/admin/ai/write
+POST   /api/admin/ai/index/rebuild
+
+# 公开站
+GET    /api/public/ai/status
+POST   /api/public/ai/chat         # Java 按 IP 限流后再转 agent（整段返回）
+POST   /api/public/ai/chat/stream  # 同上，SSE 转发给浏览器
 ```
 
-当前：文档在内存里；`complete` / `chat` 返回 501。
+当前：文档会写入 LlamaIndex（默认为内存向量；可接 pgvector）。`complete` / `chat` 已接 LangChain。对话模型优先用后台配置，未填时回退 agent 环境变量；都没有则返回 503。
 
 ---
 
@@ -132,24 +145,25 @@ POST   /v1/chat              # 可开 rag.corpus
 
 ### 第一期：能生成
 
-- [ ] 接入 OpenAI 兼容的 Chat API（密钥只放 AI 服务）
-- [ ] `POST /v1/complete`：摘要、帮写（先非流式，再 SSE）
-- [ ] Java 管理接口转发（登录后才能调）
-- [ ] 编辑器：「生成摘要」「AI 帮我写」，结果需用户确认
+- [x] 接入 OpenAI 兼容的 Chat API（密钥只放 AI 服务）
+- [x] `POST /v1/complete`：摘要、帮写（先非流式，再 SSE）
+- [x] Java 管理接口转发（登录后才能调）
+- [x] 编辑器：「生成摘要」「AI 帮我写」，结果需用户确认
 
 ### 第二期：语料与助手
 
-- [ ] AI 侧 PostgreSQL + pgvector
-- [ ] 文档入库时切片并写入向量（替换内存仓库）
-- [ ] Java：发布/下线异步同步文档；历史已发布文章回填
-- [ ] `POST /v1/chat`：闲聊；开启 RAG 时检索已发布语料并带 citations
-- [ ] 公开站全局助手 UI + 限流
+- [x] AI 侧 PostgreSQL + pgvector（Compose 服务 `ai-postgres`，`pnpm dev` 一并启动）
+- [x] 文档入库时切片并写入向量（LlamaIndex；无数据库时用内存）
+- [x] Java：发布/下线异步同步文档；历史已发布文章回填（`POST /api/admin/ai/index/rebuild`）
+- [x] `POST /v1/chat`：闲聊；开启 RAG 时检索已发布语料并带 citations
+- [x] 公开站全局助手 UI + 限流 + SSE 流式输出
+- [x] 管理后台动态配置对话模型与向量模型（密钥不回显）
 
 ### 第三期（可后置）
 
 - [ ] 关键词 + 向量混合检索
 - [ ] 对话历史持久化
-- [ ] 站点设置里配置助手人设
+- [x] 站点设置里配置助手人设
 - [ ] Agent 多步工具（仍保持与博客表解耦）
 - [ ] `agent/` 独立部署文档 / 镜像，方便拷到其他仓库
 

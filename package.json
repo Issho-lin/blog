@@ -3,14 +3,14 @@
   "private": true,
   "scripts": {
     "install:all": "pnpm install && pnpm --dir frontend install && cd backend && ./mvnw -q -DskipTests dependency:go-offline",
-    "dev": "pnpm run dev:deps && concurrently -k -n api,web -c green,cyan \"pnpm run dev:backend\" \"pnpm run dev:frontend\"",
-    "dev:deps": "docker compose up -d postgres redis minio",
+    "dev": "pnpm run dev:deps && concurrently -k -n api,web,agent -c green,cyan,magenta \"pnpm run dev:backend\" \"pnpm run dev:frontend\" \"pnpm run dev:agent\"",
+    "dev:deps": "docker compose up -d postgres redis minio ai-postgres",
     "dev:backend": "cd backend && SPRING_PROFILES_ACTIVE=jpa MEDIA_STORAGE_TYPE=s3 ./mvnw spring-boot:run",
     "dev:frontend": "pnpm --dir frontend dev",
-    "dev:agent": "cd agent && uv run agent",
+    "dev:agent": "cd agent && AGENT_DATABASE_URL=${AGENT_DATABASE_URL:-postgresql://blog:blog@localhost:5433/blog_ai} uv run agent",
     "test:backend": "docker compose up -d postgres && cd backend && ./mvnw test",
     "test:agent": "cd agent && uv run pytest",
-    "stop": "docker compose stop postgres redis minio"
+    "stop": "docker compose stop postgres redis minio ai-postgres"
   },
   "devDependencies": {
     "concurrently": "^10.0.4"

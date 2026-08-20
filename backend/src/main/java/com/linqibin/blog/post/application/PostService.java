@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import com.linqibin.blog.ai.application.AiCorpusSync;
 import com.linqibin.blog.comment.domain.CommentRepository;
 import com.linqibin.blog.media.application.MediaService;
 import com.linqibin.blog.post.domain.Post;
@@ -36,9 +37,10 @@ public class PostService {
     private final MediaService mediaService;
     private final PostRevisionService revisionService;
     private final CommentRepository commentRepository;
+    private final AiCorpusSync aiCorpusSync;
 
     public PostService(PostRepository postRepository, SlugGenerator slugGenerator, Clock clock) {
-        this(postRepository, slugGenerator, clock, UUID::randomUUID, null, null, null);
+        this(postRepository, slugGenerator, clock, UUID::randomUUID, null, null, null, null);
     }
 
     public PostService(
@@ -47,7 +49,7 @@ public class PostService {
             Clock clock,
             Supplier<UUID> idSupplier
     ) {
-        this(postRepository, slugGenerator, clock, idSupplier, null, null, null);
+        this(postRepository, slugGenerator, clock, idSupplier, null, null, null, null);
     }
 
     public PostService(
@@ -57,7 +59,7 @@ public class PostService {
             Supplier<UUID> idSupplier,
             MediaService mediaService
     ) {
-        this(postRepository, slugGenerator, clock, idSupplier, mediaService, null, null);
+        this(postRepository, slugGenerator, clock, idSupplier, mediaService, null, null, null);
     }
 
     public PostService(
@@ -69,6 +71,19 @@ public class PostService {
             PostRevisionService revisionService,
             CommentRepository commentRepository
     ) {
+        this(postRepository, slugGenerator, clock, idSupplier, mediaService, revisionService, commentRepository, null);
+    }
+
+    public PostService(
+            PostRepository postRepository,
+            SlugGenerator slugGenerator,
+            Clock clock,
+            Supplier<UUID> idSupplier,
+            MediaService mediaService,
+            PostRevisionService revisionService,
+            CommentRepository commentRepository,
+            AiCorpusSync aiCorpusSync
+    ) {
         this.postRepository = Objects.requireNonNull(postRepository);
         this.slugGenerator = Objects.requireNonNull(slugGenerator);
         this.clock = Objects.requireNonNull(clock);
@@ -76,6 +91,7 @@ public class PostService {
         this.mediaService = mediaService;
         this.revisionService = revisionService;
         this.commentRepository = commentRepository;
+        this.aiCorpusSync = aiCorpusSync;
     }
 
     public Post createDraft(String title, String markdownContent, String requestedSlug,
@@ -142,6 +158,7 @@ public class PostService {
                 resolvedSeoTitle, resolvedSeoDescription);
         Post saved = postRepository.save(updatedPost);
         recordRevision(saved, PostRevisionKind.AUTO);
+        syncCorpus(currentPost, saved);
         return saved;
     }
 
@@ -264,23 +281,25 @@ public class PostService {
     }
 
     public Post publish(UUID postId) {
-        // 先取出文章，再交给领域对象自己判断是否允许发布。
-        Post publishedPost = getPost(postId).publish(Instant.now(clock));
-        Post saved = postRepository.save(publishedPost);
+        Post current = getPost(postId);
+        Post saved = postRepository.save(current.publish(Instant.now(clock)));
         recordRevision(saved, PostRevisionKind.PUBLISH);
+        syncCorpus(current, saved);
         return saved;
     }
 
     public Post unpublish(UUID postId) {
-        // 应用层只做流程串联，不在这里重复写状态判断。
-        Post unpublishedPost = getPost(postId).unpublish(Instant.now(clock));
-        return postRepository.save(unpublishedPost);
+        Post current = getPost(postId);
+        Post saved = postRepository.save(current.unpublish(Instant.now(clock)));
+        syncCorpus(current, saved);
+        return saved;
     }
 
     public Post moveToTrash(UUID postId) {
-        // 回收站操作仍然复用领域对象的状态规则。
-        Post trashedPost = getPost(postId).moveToTrash(Instant.now(clock));
-        return postRepository.save(trashedPost);
+        Post current = getPost(postId);
+        Post saved = postRepository.save(current.moveToTrash(Instant.now(clock)));
+        syncCorpus(current, saved);
+        return saved;
     }
 
     public Post restoreFromTrash(UUID postId) {
@@ -301,6 +320,9 @@ public class PostService {
         }
         if (mediaService != null) {
             mediaService.deleteUnreferencedLocalFiles(post, postRepository.findAll());
+        }
+        if (aiCorpusSync != null) {
+            aiCorpusSync.delete(postId);
         }
     }
 
@@ -383,10 +405,26 @@ public class PostService {
     private Post moveToTrashAllowingPublished(UUID postId) {
         Post post = getPost(postId);
         Instant now = Instant.now(clock);
+        Post previous = post;
         if (post.status() == PostStatus.PUBLISHED) {
             post = post.unpublish(now);
         }
-        return postRepository.save(post.moveToTrash(now));
+        Post saved = postRepository.save(post.moveToTrash(now));
+        syncCorpus(previous, saved);
+        return saved;
+    }
+
+    private void syncCorpus(Post previous, Post current) {
+        if (aiCorpusSync == null || current == null) {
+            return;
+        }
+        boolean nowPublished = current.status() == PostStatus.PUBLISHED;
+        boolean wasPublished = previous != null && previous.status() == PostStatus.PUBLISHED;
+        if (nowPublished) {
+            aiCorpusSync.upsert(current);
+        } else if (wasPublished) {
+            aiCorpusSync.delete(current.id());
+        }
     }
 
     private BatchPostResult runBatch(List<UUID> ids, Function<UUID, Post> action) {

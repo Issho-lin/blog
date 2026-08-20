@@ -17,6 +17,7 @@ import com.linqibin.blog.support.AuthTestSupport;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,6 +80,15 @@ class AdminProtectedEndpointIntegrationTest {
         );
 
         mockMvc.perform(multipart("/api/admin/media/images").file(file))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void unauthorizedAiSummarizeReturns401() throws Exception {
+        mockMvc.perform(post("/api/admin/ai/summarize")
+                        .contentType("application/json")
+                        .content("{\"markdown\":\"正文\"}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }

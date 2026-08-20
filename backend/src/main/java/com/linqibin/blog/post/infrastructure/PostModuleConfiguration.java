@@ -13,6 +13,7 @@ import com.linqibin.blog.markdown.parser.FrontMatterParser;
 import com.linqibin.blog.media.application.MediaService;
 import org.springframework.beans.factory.ObjectProvider;
 
+import com.linqibin.blog.ai.application.AiCorpusSync;
 import com.linqibin.blog.comment.domain.CommentRepository;
 import com.linqibin.blog.post.application.PostImportExportService;
 import com.linqibin.blog.post.application.PostRevisionService;
@@ -112,7 +113,8 @@ public class PostModuleConfiguration {
             Clock clock,
             MediaService mediaService,
             PostRevisionService postRevisionService,
-            ObjectProvider<CommentRepository> commentRepository
+            ObjectProvider<CommentRepository> commentRepository,
+            ObjectProvider<AiCorpusSync> aiCorpusSync
     ) {
         return new PostService(
                 postRepository,
@@ -121,7 +123,8 @@ public class PostModuleConfiguration {
                 UUID::randomUUID,
                 mediaService,
                 postRevisionService,
-                commentRepository.getIfAvailable()
+                commentRepository.getIfAvailable(),
+                aiCorpusSync.getIfAvailable()
         );
     }
 

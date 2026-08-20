@@ -10,19 +10,21 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: workspaceRoot,
   },
-  // 开发时把 /api 代理到后端，浏览器同源携带 Cookie 更省事。
+  // afterFiles：让 app/api 下的流式 Route Handler 优先生效，避免 rewrite 把 SSE 攒成一次响应。
   async rewrites() {
     const apiOrigin = process.env.API_PROXY_ORIGIN ?? "http://localhost:8080";
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${apiOrigin}/api/:path*`,
-      },
-      {
-        source: "/uploads/:path*",
-        destination: `${apiOrigin}/uploads/:path*`,
-      },
-    ];
+    return {
+      afterFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${apiOrigin}/api/:path*`,
+        },
+        {
+          source: "/uploads/:path*",
+          destination: `${apiOrigin}/uploads/:path*`,
+        },
+      ],
+    };
   },
 };
 

@@ -5,7 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -14,6 +16,7 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.linqibin.blog.ai.application.AiCorpusSync;
 import com.linqibin.blog.media.application.MediaService;
 import com.linqibin.blog.media.infrastructure.FileStorageService;
 import com.linqibin.blog.post.application.AdminDashboard;
@@ -266,6 +269,31 @@ class PostServiceTest {
         assertEquals(PostStatus.PUBLISHED, publishedPost.status());
         assertEquals(Instant.parse("2026-07-30T11:00:00Z"), publishedPost.publishedAt());
         assertEquals(Instant.parse("2026-07-30T11:00:00Z"), publishedPost.updatedAt());
+    }
+
+    @Test
+    void publishAndUnpublishSyncsAiCorpus() {
+        RecordingAiCorpusSync corpusSync = new RecordingAiCorpusSync();
+        PostService postService = new PostService(
+                postRepository,
+                slugGenerator,
+                Clock.fixed(Instant.parse("2026-07-30T10:00:00Z"), ZoneOffset.UTC),
+                idSupplier,
+                null,
+                null,
+                null,
+                corpusSync
+        );
+        Post draft = postService.createDraft("AI Sync", "# vector", "ai-sync", null, null);
+
+        postService.publish(draft.id());
+        assertEquals(1, corpusSync.upserts.size());
+        assertEquals("AI Sync", corpusSync.upserts.get(0).title());
+        assertTrue(corpusSync.deletes.isEmpty());
+
+        postService.unpublish(draft.id());
+        assertEquals(1, corpusSync.deletes.size());
+        assertEquals(draft.id(), corpusSync.deletes.get(0));
     }
 
     @Test
@@ -605,6 +633,21 @@ class PostServiceTest {
 
         boolean contains(String storedFilename) {
             return stored.contains(storedFilename);
+        }
+    }
+
+    private static class RecordingAiCorpusSync implements AiCorpusSync {
+        private final List<Post> upserts = new ArrayList<>();
+        private final List<UUID> deletes = new ArrayList<>();
+
+        @Override
+        public void upsert(Post post) {
+            upserts.add(post);
+        }
+
+        @Override
+        public void delete(UUID postId) {
+            deletes.add(postId);
         }
     }
 }

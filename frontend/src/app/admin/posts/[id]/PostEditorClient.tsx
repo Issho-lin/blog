@@ -30,6 +30,8 @@ import {
   unpublishPost,
   updatePost,
   uploadImage,
+  summarizeWithAi,
+  writeWithAi,
 } from "@/lib/api/posts";
 import type { AdminPost, Category, Tag } from "@/lib/api/types";
 import { readingStatsFromMarkdown } from "@/lib/reading-stats";
@@ -102,6 +104,13 @@ export function AdminPostEditor({ postId }: { postId: string }) {
   const [serverPeek, setServerPeek] = useState<AdminPost | null>(null);
   const [coverUploadPercent, setCoverUploadPercent] = useState<number | null>(null);
   const [coverUploadError, setCoverUploadError] = useState<string | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [writeOpen, setWriteOpen] = useState(false);
+  const [writeMode, setWriteMode] = useState("continue");
+  const [writeInstruction, setWriteInstruction] = useState("");
+  const [writePreview, setWritePreview] = useState("");
+  const [writeBusy, setWriteBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const lastCoverFileRef = useRef<File | null>(null);
 
   const coverFileRef = useRef<HTMLInputElement>(null);
@@ -354,6 +363,61 @@ export function AdminPostEditor({ postId }: { postId: string }) {
     );
   }
 
+  async function onSummarize() {
+    setAiError(null);
+    setSummarizing(true);
+    try {
+      const result = await summarizeWithAi(markdown);
+      markDirty();
+      setExcerpt(result.text.slice(0, 500));
+      setMetaOpen(true);
+    } catch (err) {
+      setAiError(err instanceof ApiError ? err.message : "生成摘要失败");
+    } finally {
+      setSummarizing(false);
+    }
+  }
+
+  async function onWrite() {
+    setAiError(null);
+    setWriteBusy(true);
+    try {
+      const result = await writeWithAi({
+        markdown,
+        instruction: writeInstruction,
+        mode: writeMode,
+      });
+      setWritePreview(result.text);
+    } catch (err) {
+      setAiError(err instanceof ApiError ? err.message : "AI 帮写失败");
+    } finally {
+      setWriteBusy(false);
+    }
+  }
+
+  function applyWritePreview() {
+    if (!writePreview.trim()) return;
+    markDirty();
+    if (writeMode === "titles") {
+      const firstLine = writePreview
+        .split("\n")
+        .map((line) => line.replace(/^\s*\d+[.)、]\s*/, "").trim())
+        .find((line) => line.length > 0);
+      if (firstLine) {
+        setTitle(firstLine);
+      }
+    } else if (writeMode === "rewrite" || writeMode === "expand") {
+      setMarkdown(writePreview);
+      setResetToken((token) => token + 1);
+    } else {
+      const next = markdown.trim() ? `${markdown.trim()}\n\n${writePreview}` : writePreview;
+      setMarkdown(next);
+      setResetToken((token) => token + 1);
+    }
+    setWritePreview("");
+    setWriteOpen(false);
+  }
+
   async function onCoverFile(file: File | undefined) {
     if (!file) return;
     lastCoverFileRef.current = file;
@@ -565,6 +629,15 @@ export function AdminPostEditor({ postId }: { postId: string }) {
           </AdminButton>
           <AdminButton
             type="button"
+            onClick={() => {
+              setWriteOpen((open) => !open);
+              setAiError(null);
+            }}
+          >
+            {writeOpen ? "收起帮写" : "AI 帮我写"}
+          </AdminButton>
+          <AdminButton
+            type="button"
             onClick={() => void onPreview()}
           >
             预览
@@ -626,6 +699,68 @@ export function AdminPostEditor({ postId }: { postId: string }) {
           )}
         </div>
       </div>
+
+      {writeOpen ? (
+        <div className="mb-4 space-y-3 rounded-xl border border-line bg-white/80 p-4">
+          <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+            <label className="block space-y-2 text-sm">
+              <span className="text-mist">模式</span>
+              <AdminSelect
+                value={writeMode}
+                onValueChange={setWriteMode}
+                options={[
+                  { value: "continue", label: "续写" },
+                  { value: "rewrite", label: "润色" },
+                  { value: "expand", label: "扩写" },
+                  { value: "outline", label: "按大纲写" },
+                  { value: "titles", label: "标题建议" },
+                ]}
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span className="text-mist">指令（可选）</span>
+              <AdminTextarea
+                value={writeInstruction}
+                onChange={(event) => setWriteInstruction(event.target.value)}
+                rows={2}
+                placeholder="例如：补充一节关于部署的说明"
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <AdminButton
+              type="button"
+              variant="primary"
+              disabled={writeBusy || (!markdown.trim() && writeMode !== "outline")}
+              onClick={() => void onWrite()}
+            >
+              {writeBusy ? "生成中…" : "生成"}
+            </AdminButton>
+            {writePreview ? (
+              <>
+                <AdminButton type="button" variant="soft" onClick={applyWritePreview}>
+                  {writeMode === "titles" ? "用作标题" : "插入正文"}
+                </AdminButton>
+                <AdminButton
+                  type="button"
+                  onClick={() => setWritePreview("")}
+                >
+                  丢弃
+                </AdminButton>
+              </>
+            ) : null}
+          </div>
+          {writePreview ? (
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-line bg-paper p-3 text-sm">
+              {writePreview}
+            </pre>
+          ) : null}
+        </div>
+      ) : null}
+
+      {aiError ? (
+        <p className="mb-4 text-sm text-seal">{aiError}</p>
+      ) : null}
 
       {pendingBackup && saveState !== "conflict" ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gold/40 bg-white/80 px-4 py-3 text-sm text-ink">
@@ -787,7 +922,16 @@ export function AdminPostEditor({ postId }: { postId: string }) {
             />
           </label>
           <div className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-mist">摘要 · 用于首页卡片和 SEO，留空则截取正文</span>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-mist">摘要 · 用于首页卡片和 SEO，留空则截取正文</span>
+              <AdminButton
+                type="button"
+                disabled={summarizing || !markdown.trim()}
+                onClick={() => void onSummarize()}
+              >
+                {summarizing ? "生成中…" : "生成摘要"}
+              </AdminButton>
+            </div>
             <AdminTextarea
               value={excerpt}
               maxLength={500}

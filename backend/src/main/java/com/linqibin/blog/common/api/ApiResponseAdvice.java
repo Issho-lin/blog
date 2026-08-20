@@ -10,6 +10,7 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import tools.jackson.databind.json.JsonMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,14 +31,26 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
             Class<? extends HttpMessageConverter<?>> converterType
     ) {
         Class<?> parameterType = returnType.getParameterType();
+        if (parameterType == void.class || parameterType == Void.class) {
+            return false;
+        }
         if (parameterType == byte[].class || parameterType == Byte[].class) {
+            return false;
+        }
+        if (StreamingResponseBody.class.isAssignableFrom(parameterType)) {
             return false;
         }
 
         // ResponseEntity<byte[]> 这类下载接口也不进入统一 JSON 包装。
         if (ResponseEntity.class.isAssignableFrom(parameterType)) {
             Class<?> bodyType = resolveResponseEntityBodyType(returnType);
-            return bodyType != byte[].class && bodyType != Byte[].class;
+            if (bodyType == byte[].class || bodyType == Byte[].class) {
+                return false;
+            }
+            if (bodyType != null && StreamingResponseBody.class.isAssignableFrom(bodyType)) {
+                return false;
+            }
+            return true;
         }
 
         return true;

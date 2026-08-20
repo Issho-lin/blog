@@ -19,3 +19,5 @@ blog:
     repository-type: jpa
   comment:
     repository-type: jpa
+  ai:
+    repository-type: jpa

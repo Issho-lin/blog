@@ -29,6 +29,9 @@ spring:
   flyway:
     enabled: false
     locations: classpath:db/migration
+  mvc:
+    async:
+      request-timeout: 120000
   session:
     timeout: 30m
   lifecycle:
@@ -54,6 +57,11 @@ blog:
     repository-type: in-memory
     max-per-window: 5
     window-minutes: 10
+  ai:
+    base-url: ${AI_BASE_URL:http://localhost:8090}
+    api-key: ${AI_API_KEY:dev-agent-key}
+    project-id: ${AI_PROJECT_ID:blog}
+    repository-type: in-memory
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
   media:

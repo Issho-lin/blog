@@ -3,6 +3,7 @@ import Script from "next/script";
 import localFont from "next/font/local";
 import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
 import { SiteEntrance } from "@/components/SiteEntrance";
+import { SiteAssistant } from "@/components/SiteAssistant";
 import "./globals.css";
 
 const notoSerif = Noto_Serif_SC({
@@ -51,7 +52,10 @@ export default function RootLayout({
         <Script id="splash-on-reload" strategy="beforeInteractive">
           {`(function(){try{var n=performance.getEntriesByType("navigation")[0];if(n&&n.type==="reload")document.documentElement.dataset.splash="1";}catch(e){}})();`}
         </Script>
-        <SiteEntrance>{children}</SiteEntrance>
+        <SiteEntrance>
+          {children}
+          <SiteAssistant />
+        </SiteEntrance>
       </body>
     </html>
   );

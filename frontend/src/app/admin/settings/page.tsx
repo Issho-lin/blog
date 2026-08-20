@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AdminSiteSettings } from "./SettingsClient";
 
 type PageProps = {
@@ -8,5 +9,10 @@ type PageProps = {
 export default async function AdminSettingsPage({ params, searchParams }: PageProps) {
   await params;
   await searchParams;
-  return <AdminSiteSettings />;
+  return (
+    <Suspense fallback={<p className="px-5 py-10 text-sm text-mist">加载中…</p>}>
+      <AdminSiteSettings />
+    </Suspense>
+  );
 }
+

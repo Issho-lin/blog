@@ -1,5 +1,6 @@
 package com.linqibin.blog.auth.security;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,6 +42,8 @@ public class SecurityConfiguration {
             )
             .securityContext(securityContext -> securityContext.requireExplicitSave(false))
             .authorizeHttpRequests(auth -> auth
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .requestMatchers("/error").permitAll()
                 // 公开接口：健康检查、公开文章、认证接口
                 .requestMatchers("/api/health", "/api/health/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
